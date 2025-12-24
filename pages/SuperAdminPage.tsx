@@ -104,8 +104,13 @@ const SuperAdminPage: React.FC = () => {
                 });
 
                 if (fnError) {
+                    let errorMsg = fnError.message;
+                    // Try to get specific error from our Edge Function catch block
+                    if (fnError.details?.error) {
+                        errorMsg = fnError.details.error;
+                    }
                     console.error('Error creating admin user:', fnError);
-                    alert('Empresa criada, mas erro ao criar usuário administrador: ' + fnError.message);
+                    alert('Empresa criada, mas erro ao configurar administrador: ' + errorMsg);
                 }
             }
 
@@ -228,7 +233,11 @@ const SuperAdminPage: React.FC = () => {
                 }
             });
 
-            if (fnError) throw fnError;
+            if (fnError) {
+                let errorMsg = fnError.message;
+                if (fnError.details?.error) errorMsg = fnError.details.error;
+                throw new Error(errorMsg);
+            }
 
             setAddUserFormData({ email: '', role: 'member', password: '' });
             fetchCompanyUsers(selectedCompany.id);
