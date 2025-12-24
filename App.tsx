@@ -29,40 +29,64 @@ const AppContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (uid: string) => {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .single();
-    setProfile(profileData);
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', uid)
+        .maybeSingle(); // Use maybeSingle to avoid errors if profile is still syncing
 
-    if (profileData) {
-      // Also fetch company status
-      const { data: userData } = await supabase
-        .from('company_users')
-        .select('company:companies(*)')
-        .eq('user_id', uid)
-        .single();
+      setProfile(profileData);
 
-      if (userData?.company) {
-        setCompany(userData.company);
+      if (uid) {
+        // Fetch company mapping and company info
+        const { data: mappingData } = await supabase
+          .from('company_users')
+          .select('company_id')
+          .eq('user_id', uid)
+          .maybeSingle();
+
+        if (mappingData?.company_id) {
+          const { data: companyData } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('id', mappingData.company_id)
+            .maybeSingle();
+
+          if (companyData) {
+            setCompany(companyData);
+          }
+        }
       }
+    } catch (error) {
+      console.error('Error fetching profile/company:', error);
     }
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initialize = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      }
       setLoading(false);
-    });
+    };
+
+    initialize();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      if (session?.user) fetchProfile(session.user.id);
-      else setProfile(null);
+      if (session?.user) {
+        setLoading(true);
+        await fetchProfile(session.user.id);
+        setLoading(false);
+      } else {
+        setProfile(null);
+        setCompany(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -119,19 +143,37 @@ const AppContent: React.FC = () => {
     return <AuthPage />;
   }
 
-  // --- Strict License Blocking ---
-  if (company && company.status !== 'active' && profile?.role !== 'SUPER_ADMIN') {
+  // --- Strict License/Access Blocking ---
+  const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
+  const isSuspended = company && company.status !== 'active';
+  const noCompany = !company && !loading;
+
+  if (!isSuperAdmin && (isSuspended || noCompany)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <Card className="max-w-md w-full p-8 text-center shadow-2xl border-t-4 border-t-red-600 animate-in fade-in zoom-in duration-300">
           <div className="mx-auto flex items-center justify-center mb-6">
             <img src="/logo.png" alt="ElevenStore Logo" className="h-12 w-auto object-contain grayscale" />
           </div>
-          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Acesso Bloqueado</h2>
-          <p className="text-gray-600 mb-8 text-lg font-medium leading-relaxed">
-            Sua licença expirou ou está bloqueada. Entre em contato com o suporte.
-          </p>
+
+          {isSuspended ? (
+            <>
+              <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Acesso Bloqueado</h2>
+              <p className="text-gray-600 mb-8 text-lg font-medium leading-relaxed">
+                Sua licença expirou ou está bloqueada. Entre em contato com o suporte.
+              </p>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Vínculo Pendente</h2>
+              <p className="text-gray-600 mb-8 text-lg font-medium leading-relaxed">
+                Seu usuário ainda não está associado a nenhuma empresa. Por favor, aguarde o convite ou entre em contato com o administrador.
+              </p>
+            </>
+          )}
+
           <div className="space-y-3">
             <Button
               variant="outline"
@@ -156,7 +198,7 @@ const AppContent: React.FC = () => {
       </div>
     );
   }
-  // -------------------------------
+  // ---------------------------------------
   return (
     <div className="flex w-full min-h-screen bg-gray-50 flex-col overflow-hidden">
       <div className="flex flex-1 overflow-hidden relative">

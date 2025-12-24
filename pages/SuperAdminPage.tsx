@@ -731,15 +731,13 @@ const SuperAdminPage: React.FC = () => {
                                         </Button>
                                     </div>
 
-                                    {companyUsers.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveUser(companyUsers[0].user_id)}
-                                            className="w-full text-center text-xs text-red-400 hover:text-red-600 font-medium py-2 transition-colors"
-                                        >
-                                            Remover vínculo deste usuário
-                                        </button>
-                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveUser(companyUsers[0].user_id)}
+                                        className="w-full text-center text-xs text-red-500 hover:text-red-700 font-bold py-2 transition-colors uppercase tracking-widest mt-2"
+                                    >
+                                        Excluir Usuário da Autenticação
+                                    </button>
                                 </form>
                             </div>
                         )}

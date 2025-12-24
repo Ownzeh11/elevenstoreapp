@@ -67,8 +67,7 @@ const ServicesPage: React.FC<ServicesPageProps> = () => {
 
           if (servicesData) setServices(servicesData);
         } else {
-          console.error("User not associated with any company");
-          alert("Erro: Seu usuário não está associado a nenhuma empresa.");
+          console.warn("User profile or company link not found yet");
         }
       } else {
         const { data: servicesData } = await supabase
