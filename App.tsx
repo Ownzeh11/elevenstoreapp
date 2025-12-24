@@ -65,12 +65,17 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     const initialize = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        }
+      } catch (error) {
+        console.error('Initialization error:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     initialize();
@@ -80,9 +85,8 @@ const AppContent: React.FC = () => {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session?.user) {
-        setLoading(true);
-        await fetchProfile(session.user.id);
-        setLoading(false);
+        // Fetch background but don't block with global Loading spinner
+        fetchProfile(session.user.id);
       } else {
         setProfile(null);
         setCompany(null);
