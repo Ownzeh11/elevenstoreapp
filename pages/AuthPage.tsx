@@ -48,8 +48,8 @@ const AuthPage: React.FC = () => {
 
             <div className="max-w-md w-full space-y-8 relative z-10 bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20">
                 <div>
-                    <div className="mx-auto h-12 w-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-indigo-200 shadow-lg transform rotate-3">
-                        <Lock className="h-6 w-6" />
+                    <div className="flex justify-center mb-4">
+                        <img src="/logo.png" alt="ElevenStore Logo" className="h-12 w-auto object-contain" />
                     </div>
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
                         {mode === 'login' ? 'Bem-vindo de volta' : 'Criar nova conta'}
