@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { NAV_ITEMS } from '../../constants';
-import { User, ChevronRight, LogOut } from 'lucide-react';
+import { User, ChevronRight, LogOut, Shield } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
 
 interface SidebarProps {
@@ -9,9 +9,10 @@ interface SidebarProps {
   onNavigate: (path: string) => void;
   isOpen: boolean;
   toggleSidebar: () => void;
+  role?: 'USER' | 'SUPER_ADMIN';
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePath, onNavigate, isOpen, toggleSidebar }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePath, onNavigate, isOpen, toggleSidebar, role }) => {
   return (
     <>
       {/* Mobile Overlay */}
@@ -59,6 +60,26 @@ const Sidebar: React.FC<SidebarProps> = ({ activePath, onNavigate, isOpen, toggl
               </Link>
             );
           })}
+
+          {role === 'SUPER_ADMIN' && (
+            <div className="pt-4 mt-4 border-t border-gray-100">
+              <span className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">Administrativo</span>
+              <Link
+                to="/admin"
+                onClick={() => {
+                  onNavigate('/admin');
+                  if (isOpen) toggleSidebar();
+                }}
+                className={`flex items-center px-4 py-2 rounded-md transition-colors duration-200 ${activePath === '/admin'
+                  ? 'bg-indigo-50 text-indigo-700 font-medium'
+                  : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+              >
+                <Shield className="h-5 w-5 mr-3" />
+                <span>Super Admin</span>
+              </Link>
+            </div>
+          )}
         </nav>
 
         <div className="border-t border-gray-200 p-4">

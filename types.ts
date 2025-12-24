@@ -100,6 +100,21 @@ export interface RecentActivity {
   icon: React.ElementType;
 }
 
+export interface Company {
+  id: string;
+  name: string;
+  status: 'active' | 'suspended' | 'blocked';
+  plan: string;
+  expires_at?: string;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  role: 'USER' | 'SUPER_ADMIN';
+  created_at: string;
+}
+
 // Move TableColumn interface from components/ui/Table.tsx to types.ts to make it exportable
 export interface TableColumn<T> {
   key: keyof T | 'actions';
