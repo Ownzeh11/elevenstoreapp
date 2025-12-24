@@ -23,7 +23,9 @@ import {
     Edit,
     X,
     UserMinus,
-    Trash
+    Trash,
+    Lock,
+    Key
 } from 'lucide-react';
 
 const SuperAdminPage: React.FC = () => {
@@ -39,7 +41,11 @@ const SuperAdminPage: React.FC = () => {
     const [companyUsers, setCompanyUsers] = useState<any[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [addUserFormData, setAddUserFormData] = useState({ email: '', role: 'member' });
+    const [createAdminData, setCreateAdminData] = useState({ email: '', password: '' });
     const [isAddingUser, setIsAddingUser] = useState(false);
+    const [isCreatingCompany, setIsCreatingCompany] = useState(false);
+    const [isUpdatingCompany, setIsUpdatingCompany] = useState(false);
+    const [editAdminData, setEditAdminData] = useState({ email: '', password: '' });
     const [stats, setStats] = useState({ total: 0, active: 0, suspended: 0 });
 
     useEffect(() => {
@@ -71,18 +77,50 @@ const SuperAdminPage: React.FC = () => {
     const handleCreateCompany = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const { data, error } = await supabase
+            setIsCreatingCompany(true);
+
+            // 1. Create Company
+            const { data: company, error: companyError } = await supabase
                 .from('companies')
-                .insert([{ name: newCompanyName, status: 'active', plan: 'standard' }])
+                .insert([{
+                    name: newCompanyName,
+                    status: 'active',
+                    plan: 'standard'
+                }])
                 .select()
                 .single();
 
-            if (error) throw error;
-            setCompanies([data, ...companies]);
+            if (companyError) throw companyError;
+
+            // 2. Create Admin User via Edge Function
+            if (createAdminData.email && createAdminData.password) {
+                const { error: fnError } = await supabase.functions.invoke('manage-company-admin', {
+                    body: {
+                        email: createAdminData.email,
+                        password: createAdminData.password,
+                        company_id: company.id,
+                        role: 'owner'
+                    }
+                });
+
+                if (fnError) {
+                    console.error('Error creating admin user:', fnError);
+                    alert('Empresa criada, mas erro ao criar usuário administrador: ' + fnError.message);
+                }
+            }
+
+            setCompanies([company, ...companies]);
             setShowCreateModal(false);
             setNewCompanyName('');
+            setCreateAdminData({ email: '', password: '' });
+
+            // Refresh stats
+            fetchCompanies();
         } catch (error) {
             console.error('Error creating company:', error);
+            alert('Erro ao criar empresa.');
+        } finally {
+            setIsCreatingCompany(false);
         }
     };
 
@@ -90,7 +128,10 @@ const SuperAdminPage: React.FC = () => {
         e.preventDefault();
         if (!selectedCompany) return;
         try {
-            const { error } = await supabase
+            setIsUpdatingCompany(true);
+
+            // 1. Update Company Basic Info
+            const { error: companyError } = await supabase
                 .from('companies')
                 .update({
                     name: editFormData.name,
@@ -99,11 +140,36 @@ const SuperAdminPage: React.FC = () => {
                 })
                 .eq('id', selectedCompany.id);
 
-            if (error) throw error;
+            if (companyError) throw companyError;
+
+            // 2. Update Admin User if email/password provided
+            if (editAdminData.email) {
+                const { error: fnError } = await supabase.functions.invoke('manage-company-admin', {
+                    body: {
+                        email: editAdminData.email,
+                        password: editAdminData.password || undefined,
+                        company_id: selectedCompany.id,
+                        role: 'owner'
+                    }
+                });
+
+                if (fnError) {
+                    console.error('Error updating admin user:', fnError);
+                    alert('Empresa atualizada, mas erro ao atualizar administrador: ' + fnError.message);
+                }
+            }
+
             setCompanies(companies.map(c => c.id === selectedCompany.id ? { ...c, ...editFormData, expires_at: editFormData.expires_at || null } : c));
             setShowEditModal(false);
+            setEditAdminData({ email: '', password: '' });
+
+            // Refresh stats in case of changes
+            fetchCompanies();
         } catch (error) {
             console.error('Error updating company:', error);
+            alert('Erro ao atualizar empresa.');
+        } finally {
+            setIsUpdatingCompany(false);
         }
     };
 
@@ -218,6 +284,7 @@ const SuperAdminPage: React.FC = () => {
             plan: company.plan || 'standard',
             expires_at: company.expires_at ? new Date(company.expires_at).toISOString().split('T')[0] : ''
         });
+        setEditAdminData({ email: '', password: '' });
         setShowEditModal(true);
     };
 
@@ -442,12 +509,41 @@ const SuperAdminPage: React.FC = () => {
                                 placeholder="Ex: ElevenStore São Paulo"
                                 required
                             />
+
+                            <div className="pt-4 border-t border-gray-100">
+                                <div className="flex items-center space-x-2 text-indigo-600 mb-4">
+                                    <Lock className="w-4 h-4" />
+                                    <span className="text-xs font-bold uppercase tracking-widest">Acesso do Administrador</span>
+                                </div>
+                                <div className="space-y-3">
+                                    <Input
+                                        label="Email do Admin"
+                                        type="email"
+                                        value={createAdminData.email}
+                                        onChange={(e) => setCreateAdminData({ ...createAdminData, email: e.target.value })}
+                                        placeholder="admin@empresa.com"
+                                        required
+                                    />
+                                    <Input
+                                        label="Senha Provisória"
+                                        type="password"
+                                        value={createAdminData.password}
+                                        onChange={(e) => setCreateAdminData({ ...createAdminData, password: e.target.value })}
+                                        placeholder="••••••••"
+                                        required
+                                    />
+                                    <p className="text-[10px] text-gray-500 italic">
+                                        Este usuário será criado automaticamente e vinculado como Dono da empresa.
+                                    </p>
+                                </div>
+                            </div>
+
                             <div className="pt-4 flex justify-end space-x-3">
-                                <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
+                                <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)} disabled={isCreatingCompany}>
                                     Cancelar
                                 </Button>
-                                <Button type="submit">
-                                    Criar Empresa
+                                <Button type="submit" disabled={isCreatingCompany}>
+                                    {isCreatingCompany ? 'Criando...' : 'Criar Empresa & Admin'}
                                 </Button>
                             </div>
                         </form>
@@ -493,12 +589,39 @@ const SuperAdminPage: React.FC = () => {
                                     onChange={(e) => setEditFormData({ ...editFormData, expires_at: e.target.value })}
                                 />
                             </div>
+
+                            <div className="pt-4 border-t border-gray-100">
+                                <div className="flex items-center space-x-2 text-indigo-600 mb-4">
+                                    <Key className="w-4 h-4" />
+                                    <span className="text-xs font-bold uppercase tracking-widest">Gestão de Administrador</span>
+                                </div>
+                                <div className="space-y-3">
+                                    <Input
+                                        label="Alterar Email do Admin"
+                                        type="email"
+                                        value={editAdminData.email}
+                                        onChange={(e) => setEditAdminData({ ...editAdminData, email: e.target.value })}
+                                        placeholder="Novo email (opcional)"
+                                    />
+                                    <Input
+                                        label="Resetar Senha"
+                                        type="password"
+                                        value={editAdminData.password}
+                                        onChange={(e) => setEditAdminData({ ...editAdminData, password: e.target.value })}
+                                        placeholder="Nova senha (opcional)"
+                                    />
+                                    <p className="text-[10px] text-gray-500 italic">
+                                        Preencha apenas se desejar alterar o email ou resetar a senha do administrador principal.
+                                    </p>
+                                </div>
+                            </div>
+
                             <div className="pt-4 flex justify-end space-x-3">
-                                <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>
+                                <Button type="button" variant="outline" onClick={() => setShowEditModal(false)} disabled={isUpdatingCompany}>
                                     Cancelar
                                 </Button>
-                                <Button type="submit">
-                                    Salvar Alterações
+                                <Button type="submit" disabled={isUpdatingCompany}>
+                                    {isUpdatingCompany ? 'Salvando...' : 'Salvar Alterações'}
                                 </Button>
                             </div>
                         </form>
