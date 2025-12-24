@@ -24,37 +24,12 @@ const AuthPage: React.FC = () => {
                 setMessage({ type: 'success', text: 'Verifique seu e-mail para confirmar o cadastro!' });
                 setMode('login'); // Switch to login after successful signup intent
             } else {
-                const { data, error } = await supabase.auth.signInWithPassword({
+                const { error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
                 if (error) throw error;
-
-                // --- License Check ---
-                if (data.user) {
-                    const { data: userCompanyData, error: userCompanyError } = await supabase
-                        .from('company_users')
-                        .select('company:companies(status)')
-                        .eq('user_id', data.user.id)
-                        .maybeSingle();
-
-                    const companyStatus = (userCompanyData?.company as any)?.status;
-
-                    if (userCompanyData?.company && companyStatus !== 'active') {
-                        // For Super Admins, allow entry to handle the issue
-                        const { data: profile } = await supabase
-                            .from('profiles')
-                            .select('role')
-                            .eq('id', data.user.id)
-                            .single();
-
-                        if (profile?.role !== 'SUPER_ADMIN') {
-                            await supabase.auth.signOut();
-                            throw new Error('Sua licença expirou ou está bloqueada. Por favor, entre em contato com o suporte.');
-                        }
-                    }
-                }
-                // ---------------------
+                // Navigation will be handled by state change in App.tsx
             }
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message || 'Ocorreu um erro durante a autenticação.' });

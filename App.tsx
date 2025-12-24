@@ -119,21 +119,46 @@ const AppContent: React.FC = () => {
     return <AuthPage />;
   }
 
+  // --- Strict License Blocking ---
+  if (company && company.status !== 'active' && profile?.role !== 'SUPER_ADMIN') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <Card className="max-w-md w-full p-8 text-center shadow-2xl border-t-4 border-t-red-600 animate-in fade-in zoom-in duration-300">
+          <div className="mx-auto flex items-center justify-center mb-6">
+            <img src="/logo.png" alt="ElevenStore Logo" className="h-12 w-auto object-contain grayscale" />
+          </div>
+          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-6" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Acesso Bloqueado</h2>
+          <p className="text-gray-600 mb-8 text-lg font-medium leading-relaxed">
+            Sua licença expirou ou está bloqueada. Entre em contato com o suporte.
+          </p>
+          <div className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-center space-x-2"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.reload();
+              }}
+            >
+              <Shield className="w-4 h-4" />
+              <span>Sair da Conta</span>
+            </Button>
+            <Button
+              variant="primary"
+              className="w-full"
+              onClick={() => window.location.reload()}
+            >
+              Tentar Novamente
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+  // -------------------------------
   return (
     <div className="flex w-full min-h-screen bg-gray-50 flex-col overflow-hidden">
-      {/* Global Status Banner */}
-      {company && company.status !== 'active' && profile?.role !== 'SUPER_ADMIN' && (
-        <div className={`w-full py-3 px-6 text-center text-sm font-bold flex items-center justify-center space-x-2 z-[60] sticky top-0 ${company.status === 'blocked' ? 'bg-red-600 text-white' : 'bg-orange-500 text-white'
-          }`}>
-          <AlertCircle className="w-4 h-4" />
-          <span>
-            {company.status === 'blocked'
-              ? 'ACESSO BLOQUEADO: Sua conta foi desativada permanentemente. Entre em contato com o suporte.'
-              : 'CONTA SUSPENSA: Sua empresa possui pendências. O acesso aos dados está temporariamente limitado.'}
-          </span>
-        </div>
-      )}
-
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar activePath={activePath} onNavigate={handleNavigate} isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} role={profile?.role} />
 
@@ -155,8 +180,7 @@ const AppContent: React.FC = () => {
             }
             toggleSidebar={toggleSidebar}
           />
-          <main className={`flex-1 overflow-y-auto relative ${company?.status !== 'active' && profile?.role !== 'SUPER_ADMIN' ? 'pointer-events-none grayscale-[0.5] opacity-80' : ''
-            }`}>
+          <main className="flex-1 overflow-y-auto relative">
             <Routes>
               <Route path="/" element={<DashboardPage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} />} />
               <Route path="/products" element={<ProductsPage />} />
@@ -168,22 +192,6 @@ const AppContent: React.FC = () => {
               <Route path="/settings" element={<SettingsPage />} />
               {profile?.role === 'SUPER_ADMIN' && <Route path="/admin" element={<SuperAdminPage />} />}
             </Routes>
-
-            {/* Blocking Overlay for non-active companies */}
-            {company && company.status !== 'active' && profile?.role !== 'SUPER_ADMIN' && (
-              <div className="absolute inset-0 bg-gray-50/10 backdrop-blur-[2px] z-10 flex items-center justify-center p-8">
-                <Card className="max-w-md p-8 text-center shadow-xl border-t-4 border-t-red-500">
-                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">Acesso Restrito</h2>
-                  <p className="text-gray-600 mb-6">
-                    {company.status === 'blocked'
-                      ? 'Sua conta foi bloqueada. Você não pode mais acessar ou modificar dados nesta empresa.'
-                      : 'Sua assinatura está suspensa. Regularize sua situação para retomar o acesso total.'}
-                  </p>
-                  <Button variant="primary" onClick={() => window.location.reload()}>Recarregar Página</Button>
-                </Card>
-              </div>
-            )}
           </main>
         </div>
       </div>
