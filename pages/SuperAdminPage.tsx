@@ -40,7 +40,7 @@ const SuperAdminPage: React.FC = () => {
     const [editFormData, setEditFormData] = useState({ name: '', plan: '', expires_at: '' });
     const [companyUsers, setCompanyUsers] = useState<any[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
-    const [addUserFormData, setAddUserFormData] = useState({ email: '', role: 'member' });
+    const [addUserFormData, setAddUserFormData] = useState({ email: '', role: 'member', password: '' });
     const [createAdminData, setCreateAdminData] = useState({ email: '', password: '' });
     const [isAddingUser, setIsAddingUser] = useState(false);
     const [isCreatingCompany, setIsCreatingCompany] = useState(false);
@@ -173,6 +173,23 @@ const SuperAdminPage: React.FC = () => {
         }
     };
 
+    const handleDeleteCompany = async (id: string) => {
+        if (!confirm('Tem certeza que deseja deletar esta empresa e todos os seus dados? Esta ação é irreversível.')) return;
+        try {
+            const { error } = await supabase
+                .from('companies')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+            setCompanies(companies.filter(c => c.id !== id));
+            fetchCompanies();
+        } catch (error) {
+            console.error('Error deleting company:', error);
+            alert('Erro ao deletar empresa. Pode haver dados vinculados que impedem a exclusão direta.');
+        }
+    };
+
     const fetchCompanyUsers = async (companyId: string) => {
         try {
             setLoadingUsers(true);
@@ -199,43 +216,23 @@ const SuperAdminPage: React.FC = () => {
         if (!selectedCompany) return;
         setIsAddingUser(true);
         try {
-            // 1. Find user by email in profiles
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('email', addUserFormData.email)
-                .single();
-
-            if (profileError || !profile) {
-                alert('Usuário não encontrado. Peça para o usuário se cadastrar primeiro.');
-                return;
-            }
-
-            // 2. Insert into company_users
-            const { error: insertError } = await supabase
-                .from('company_users')
-                .insert([
-                    {
-                        company_id: selectedCompany.id,
-                        user_id: profile.id,
-                        role: addUserFormData.role
-                    }
-                ]);
-
-            if (insertError) {
-                if (insertError.code === '23505') {
-                    alert('Este usuário já faz parte desta empresa.');
-                } else {
-                    throw insertError;
+            // Use Edge Function to create/link user
+            const { error: fnError } = await supabase.functions.invoke('manage-company-admin', {
+                body: {
+                    email: addUserFormData.email,
+                    password: addUserFormData.password || undefined,
+                    company_id: selectedCompany.id,
+                    role: addUserFormData.role
                 }
-                return;
-            }
+            });
 
-            setAddUserFormData({ email: '', role: 'member' });
+            if (fnError) throw fnError;
+
+            setAddUserFormData({ email: '', role: 'member', password: '' });
             fetchCompanyUsers(selectedCompany.id);
         } catch (error) {
             console.error('Error adding user:', error);
-            alert('Erro ao adicionar usuário.');
+            alert('Erro ao adicionar/criar usuário.');
         } finally {
             setIsAddingUser(false);
         }
@@ -409,6 +406,13 @@ const SuperAdminPage: React.FC = () => {
                         title="Gerenciar Usuários"
                     >
                         <UserCog className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => handleDeleteCompany(item.id)}
+                        className="p-1.5 text-red-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Deletar Empresa"
+                    >
+                        <Trash className="w-5 h-5" />
                     </button>
                 </div>
             )
@@ -633,44 +637,66 @@ const SuperAdminPage: React.FC = () => {
             {showUsersModal && selectedCompany && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <Card className="w-full max-w-lg p-6 shadow-2xl max-h-[80vh] flex flex-col">
+                        {/* Header */}
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h3 className="text-xl font-bold text-gray-900">Usuários da Empresa</h3>
                                 <p className="text-sm text-gray-500">{selectedCompany.name}</p>
                             </div>
-                            <button onClick={() => setShowUsersModal(false)} className="text-gray-400 hover:text-gray-600">
+                            <button onClick={() => setShowUsersModal(false)} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors">
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
 
-                        {/* Add User Form */}
-                        <div className="px-6 pb-4 border-b">
-                            <form onSubmit={handleAddUser} className="flex gap-2 items-end">
-                                <div className="flex-1">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Convidar por Email</label>
-                                    <Input
-                                        value={addUserFormData.email}
-                                        onChange={(e) => setAddUserFormData({ ...addUserFormData, email: e.target.value })}
-                                        placeholder="usuario@email.com"
-                                        required
-                                        className="py-1.5"
-                                    />
+                        {/* Add/Create User Form */}
+                        <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 mb-6 shadow-sm">
+                            <h4 className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                <UserPlus className="w-3 h-3" />
+                                Criar ou Vincular Novo Usuário
+                            </h4>
+                            <form onSubmit={handleAddUser} className="space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">Email</label>
+                                        <Input
+                                            value={addUserFormData.email}
+                                            onChange={(e) => setAddUserFormData({ ...addUserFormData, email: e.target.value })}
+                                            placeholder="usuario@email.com"
+                                            required
+                                            className="h-10 bg-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">Senha (Obrigatório p/ novos)</label>
+                                        <Input
+                                            type="password"
+                                            value={addUserFormData.password}
+                                            onChange={(e) => setAddUserFormData({ ...addUserFormData, password: e.target.value })}
+                                            placeholder="••••••••"
+                                            className="h-10 bg-white"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="w-32">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Cargo</label>
-                                    <select
-                                        className="w-full px-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
-                                        value={addUserFormData.role}
-                                        onChange={(e) => setAddUserFormData({ ...addUserFormData, role: e.target.value })}
-                                    >
-                                        <option value="owner">Dono</option>
-                                        <option value="admin">Admin</option>
-                                        <option value="member">Membro</option>
-                                    </select>
+                                <div className="flex gap-2 items-end">
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">Cargo</label>
+                                        <select
+                                            className="w-full h-10 px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                            value={addUserFormData.role}
+                                            onChange={(e) => setAddUserFormData({ ...addUserFormData, role: e.target.value })}
+                                        >
+                                            <option value="owner">Dono</option>
+                                            <option value="admin">Admin</option>
+                                            <option value="member">Membro</option>
+                                        </select>
+                                    </div>
+                                    <Button type="submit" disabled={isAddingUser} className="h-10 px-6 whitespace-nowrap">
+                                        {isAddingUser ? 'Wait...' : 'Criar e Vincular'}
+                                    </Button>
                                 </div>
-                                <Button type="submit" disabled={isAddingUser} className="mb-[2px] h-[38px]">
-                                    {isAddingUser ? '...' : <UserPlus className="w-4 h-4" />}
-                                </Button>
+                                <p className="text-[9px] text-gray-400 italic">
+                                    * Se o usuário já existir, a senha informada resetará a senha atual e ele será vinculado.
+                                </p>
                             </form>
                         </div>
 
