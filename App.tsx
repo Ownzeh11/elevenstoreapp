@@ -154,7 +154,7 @@ const AppContent: React.FC = () => {
 
   if (!isSuperAdmin && (isSuspended || noCompany)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-50 z-[9999] px-4">
         <Card className="max-w-md w-full p-8 text-center shadow-2xl border-t-4 border-t-red-600 animate-in fade-in zoom-in duration-300">
           <div className="mx-auto flex items-center justify-center mb-6">
             <img src="/logo.png" alt="ElevenStore Logo" className="h-12 w-auto object-contain grayscale" />
