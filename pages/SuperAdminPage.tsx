@@ -21,7 +21,9 @@ import {
     PauseCircle,
     UserPlus,
     Edit,
-    X
+    X,
+    UserMinus,
+    Trash
 } from 'lucide-react';
 
 const SuperAdminPage: React.FC = () => {
@@ -36,6 +38,8 @@ const SuperAdminPage: React.FC = () => {
     const [editFormData, setEditFormData] = useState({ name: '', plan: '', expires_at: '' });
     const [companyUsers, setCompanyUsers] = useState<any[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
+    const [addUserFormData, setAddUserFormData] = useState({ email: '', role: 'member' });
+    const [isAddingUser, setIsAddingUser] = useState(false);
     const [stats, setStats] = useState({ total: 0, active: 0, suspended: 0 });
 
     useEffect(() => {
@@ -111,7 +115,7 @@ const SuperAdminPage: React.FC = () => {
                 .select(`
                     user_id,
                     role,
-                    profile:profiles(id, created_at)
+                    profile:profiles(id, email, created_at)
                 `)
                 .eq('company_id', companyId);
 
@@ -121,6 +125,89 @@ const SuperAdminPage: React.FC = () => {
             console.error('Error fetching company users:', error);
         } finally {
             setLoadingUsers(false);
+        }
+    };
+
+    const handleAddUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedCompany) return;
+        setIsAddingUser(true);
+        try {
+            // 1. Find user by email in profiles
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('email', addUserFormData.email)
+                .single();
+
+            if (profileError || !profile) {
+                alert('Usuário não encontrado. Peça para o usuário se cadastrar primeiro.');
+                return;
+            }
+
+            // 2. Insert into company_users
+            const { error: insertError } = await supabase
+                .from('company_users')
+                .insert([
+                    {
+                        company_id: selectedCompany.id,
+                        user_id: profile.id,
+                        role: addUserFormData.role
+                    }
+                ]);
+
+            if (insertError) {
+                if (insertError.code === '23505') {
+                    alert('Este usuário já faz parte desta empresa.');
+                } else {
+                    throw insertError;
+                }
+                return;
+            }
+
+            setAddUserFormData({ email: '', role: 'member' });
+            fetchCompanyUsers(selectedCompany.id);
+        } catch (error) {
+            console.error('Error adding user:', error);
+            alert('Erro ao adicionar usuário.');
+        } finally {
+            setIsAddingUser(false);
+        }
+    };
+
+    const handleRemoveUser = async (userId: string) => {
+        if (!selectedCompany) return;
+        if (!confirm('Remover este usuário desta empresa?')) return;
+
+        try {
+            const { error } = await supabase
+                .from('company_users')
+                .delete()
+                .eq('company_id', selectedCompany.id)
+                .eq('user_id', userId);
+
+            if (error) throw error;
+            setCompanyUsers(companyUsers.filter(cu => cu.user_id !== userId));
+        } catch (error) {
+            console.error('Error removing user:', error);
+            alert('Erro ao remover usuário.');
+        }
+    };
+
+    const handleUpdateUserRole = async (userId: string, role: string) => {
+        if (!selectedCompany) return;
+        try {
+            const { error } = await supabase
+                .from('company_users')
+                .update({ role })
+                .eq('company_id', selectedCompany.id)
+                .eq('user_id', userId);
+
+            if (error) throw error;
+            setCompanyUsers(companyUsers.map(cu => cu.user_id === userId ? { ...cu, role } : cu));
+        } catch (error) {
+            console.error('Error updating user role:', error);
+            alert('Erro ao atualizar cargo.');
         }
     };
 
@@ -433,7 +520,38 @@ const SuperAdminPage: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto min-h-[300px]">
+                        {/* Add User Form */}
+                        <div className="px-6 pb-4 border-b">
+                            <form onSubmit={handleAddUser} className="flex gap-2 items-end">
+                                <div className="flex-1">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Convidar por Email</label>
+                                    <Input
+                                        value={addUserFormData.email}
+                                        onChange={(e) => setAddUserFormData({ ...addUserFormData, email: e.target.value })}
+                                        placeholder="usuario@email.com"
+                                        required
+                                        className="py-1.5"
+                                    />
+                                </div>
+                                <div className="w-32">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Cargo</label>
+                                    <select
+                                        className="w-full px-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                        value={addUserFormData.role}
+                                        onChange={(e) => setAddUserFormData({ ...addUserFormData, role: e.target.value })}
+                                    >
+                                        <option value="owner">Dono</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="member">Membro</option>
+                                    </select>
+                                </div>
+                                <Button type="submit" disabled={isAddingUser} className="mb-[2px] h-[38px]">
+                                    {isAddingUser ? '...' : <UserPlus className="w-4 h-4" />}
+                                </Button>
+                            </form>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6 min-h-[300px]">
                             {loadingUsers ? (
                                 <div className="flex justify-center items-center h-full">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -443,21 +561,36 @@ const SuperAdminPage: React.FC = () => {
                                     Nenhum usuário vinculado a esta empresa.
                                 </div>
                             ) : (
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {companyUsers.map((item, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                                             <div className="flex items-center space-x-3">
                                                 <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                    <span className="text-indigo-600 font-bold text-xs">U</span>
+                                                    <span className="text-indigo-600 font-extrabold text-xs">{(item.profile?.email || 'U').substring(0, 1).toUpperCase()}</span>
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-semibold text-gray-900">{item.user_id.substring(0, 12)}...</p>
-                                                    <p className="text-xs text-gray-500 capitalize">{item.role}</p>
+                                                    <p className="text-sm font-bold text-gray-900">{item.profile?.email || 'Usuário s/ Email'}</p>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className="text-[10px] text-gray-400 font-mono">ID: {item.user_id.substring(0, 8)}</span>
+                                                        <select
+                                                            className="text-[10px] font-bold text-indigo-600 bg-transparent border-none p-0 focus:ring-0 cursor-pointer hover:underline"
+                                                            value={item.role}
+                                                            onChange={(e) => handleUpdateUserRole(item.user_id, e.target.value)}
+                                                        >
+                                                            <option value="owner">Dono</option>
+                                                            <option value="admin">Admin</option>
+                                                            <option value="member">Membro</option>
+                                                        </select>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <Pill variant={item.role === 'owner' ? 'success' : 'default'} className="text-[10px]">
-                                                {item.role}
-                                            </Pill>
+                                            <button
+                                                onClick={() => handleRemoveUser(item.user_id)}
+                                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                title="Remover Usuário"
+                                            >
+                                                <UserMinus className="w-5 h-5" />
+                                            </button>
                                         </div>
                                     ))}
                                 </div>

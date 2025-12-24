@@ -111,6 +111,7 @@ export interface Company {
 
 export interface Profile {
   id: string;
+  email?: string;
   role: 'USER' | 'SUPER_ADMIN';
   created_at: string;
 }
