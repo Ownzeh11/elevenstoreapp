@@ -40,7 +40,7 @@ const SuperAdminPage: React.FC = () => {
     const [editFormData, setEditFormData] = useState({ name: '', plan: '', expires_at: '' });
     const [companyUsers, setCompanyUsers] = useState<any[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
-    const [addUserFormData, setAddUserFormData] = useState({ email: '', role: 'member', password: '' });
+    const [addUserFormData, setAddUserFormData] = useState({ email: '', role: 'owner', password: '' });
     const [createAdminData, setCreateAdminData] = useState({ email: '', password: '' });
     const [isAddingUser, setIsAddingUser] = useState(false);
     const [isCreatingCompany, setIsCreatingCompany] = useState(false);
@@ -204,8 +204,10 @@ const SuperAdminPage: React.FC = () => {
 
             if (error) throw error;
             setCompanyUsers(data || []);
+            return data;
         } catch (error) {
             console.error('Error fetching company users:', error);
+            return [];
         } finally {
             setLoadingUsers(false);
         }
@@ -287,7 +289,16 @@ const SuperAdminPage: React.FC = () => {
 
     const openUsersModal = (company: Company) => {
         setSelectedCompany(company);
-        fetchCompanyUsers(company.id);
+        setAddUserFormData({ email: '', role: 'owner', password: '' });
+        fetchCompanyUsers(company.id).then((users: any) => {
+            if (users && users.length > 0) {
+                setAddUserFormData({
+                    email: users[0].profile?.email || '',
+                    role: 'owner',
+                    password: ''
+                });
+            }
+        });
         setShowUsersModal(true);
     };
 
@@ -633,14 +644,13 @@ const SuperAdminPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Users Modal */}
+            {/* User Management Modal (Single User per Company) */}
             {showUsersModal && selectedCompany && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <Card className="w-full max-w-lg p-6 shadow-2xl max-h-[80vh] flex flex-col">
-                        {/* Header */}
+                    <Card className="w-full max-w-md p-6 shadow-2xl">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900">Usuários da Empresa</h3>
+                                <h3 className="text-xl font-bold text-gray-900">Gerenciar Usuário</h3>
                                 <p className="text-sm text-gray-500">{selectedCompany.name}</p>
                             </div>
                             <button onClick={() => setShowUsersModal(false)} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -648,106 +658,79 @@ const SuperAdminPage: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* Add/Create User Form */}
-                        <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 mb-6 shadow-sm">
-                            <h4 className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                <UserPlus className="w-3 h-3" />
-                                Criar ou Vincular Novo Usuário
-                            </h4>
-                            <form onSubmit={handleAddUser} className="space-y-3">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">Email</label>
-                                        <Input
-                                            value={addUserFormData.email}
-                                            onChange={(e) => setAddUserFormData({ ...addUserFormData, email: e.target.value })}
-                                            placeholder="usuario@email.com"
-                                            required
-                                            className="h-10 bg-white"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">Senha (Obrigatório p/ novos)</label>
-                                        <Input
-                                            type="password"
-                                            value={addUserFormData.password}
-                                            onChange={(e) => setAddUserFormData({ ...addUserFormData, password: e.target.value })}
-                                            placeholder="••••••••"
-                                            className="h-10 bg-white"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex gap-2 items-end">
-                                    <div className="flex-1 space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">Cargo</label>
-                                        <select
-                                            className="w-full h-10 px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
-                                            value={addUserFormData.role}
-                                            onChange={(e) => setAddUserFormData({ ...addUserFormData, role: e.target.value })}
-                                        >
-                                            <option value="owner">Dono</option>
-                                            <option value="admin">Admin</option>
-                                            <option value="member">Membro</option>
-                                        </select>
-                                    </div>
-                                    <Button type="submit" disabled={isAddingUser} className="h-10 px-6 whitespace-nowrap">
-                                        {isAddingUser ? 'Wait...' : 'Criar e Vincular'}
-                                    </Button>
-                                </div>
-                                <p className="text-[9px] text-gray-400 italic">
-                                    * Se o usuário já existir, a senha informada resetará a senha atual e ele será vinculado.
-                                </p>
-                            </form>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6 min-h-[300px]">
-                            {loadingUsers ? (
-                                <div className="flex justify-center items-center h-full">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                                </div>
-                            ) : companyUsers.length === 0 ? (
-                                <div className="text-center py-12 text-gray-500">
-                                    Nenhum usuário vinculado a esta empresa.
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {companyUsers.map((item, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                            <div className="flex items-center space-x-3">
-                                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                    <span className="text-indigo-600 font-extrabold text-xs">{(item.profile?.email || 'U').substring(0, 1).toUpperCase()}</span>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-gray-900">{item.profile?.email || 'Usuário s/ Email'}</p>
-                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                        <span className="text-[10px] text-gray-400 font-mono">ID: {item.user_id.substring(0, 8)}</span>
-                                                        <select
-                                                            className="text-[10px] font-bold text-indigo-600 bg-transparent border-none p-0 focus:ring-0 cursor-pointer hover:underline"
-                                                            value={item.role}
-                                                            onChange={(e) => handleUpdateUserRole(item.user_id, e.target.value)}
-                                                        >
-                                                            <option value="owner">Dono</option>
-                                                            <option value="admin">Admin</option>
-                                                            <option value="member">Membro</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
+                        {loadingUsers ? (
+                            <div className="flex justify-center py-12">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {companyUsers.length > 0 ? (
+                                    <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 mb-4">
+                                        <div className="flex items-center space-x-3 mb-4">
+                                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                                <span className="text-indigo-600 font-extrabold">{(companyUsers[0].profile?.email || 'U').substring(0, 1).toUpperCase()}</span>
                                             </div>
-                                            <button
-                                                onClick={() => handleRemoveUser(item.user_id)}
-                                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                                                title="Remover Usuário"
-                                            >
-                                                <UserMinus className="w-5 h-5" />
-                                            </button>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-900">{companyUsers[0].profile?.email || 'Usuário s/ Email'}</p>
+                                                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Usuário Verificado</span>
+                                            </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center space-x-2 text-yellow-600 bg-yellow-50 p-3 rounded-xl border border-yellow-100 mb-4">
+                                        <AlertCircle className="w-4 h-4" />
+                                        <p className="text-xs font-medium">Nenhum usuário vinculado a esta empresa.</p>
+                                    </div>
+                                )}
 
-                        <div className="pt-6 border-t mt-4 flex justify-end">
-                            <Button variant="outline" onClick={() => setShowUsersModal(false)}>
+                                <form onSubmit={handleAddUser} className="space-y-4">
+                                    <div className="space-y-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
+                                                {companyUsers.length > 0 ? 'Mudar Email de Login' : 'Email de Acesso'}
+                                            </label>
+                                            <Input
+                                                value={addUserFormData.email}
+                                                onChange={(e) => setAddUserFormData({ ...addUserFormData, email: e.target.value })}
+                                                placeholder="usuario@email.com"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
+                                                {companyUsers.length > 0 ? 'Nova Senha (deixe vazio se não quiser mudar)' : 'Senha de Acesso'}
+                                            </label>
+                                            <Input
+                                                type="password"
+                                                value={addUserFormData.password}
+                                                onChange={(e) => setAddUserFormData({ ...addUserFormData, password: e.target.value })}
+                                                placeholder="••••••••"
+                                                required={companyUsers.length === 0}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2">
+                                        <Button type="submit" disabled={isAddingUser} className="w-full h-11 shadow-lg shadow-indigo-200">
+                                            {isAddingUser ? 'Aguarde...' : companyUsers.length > 0 ? 'Salvar Novas Credenciais' : 'Criar e Vincular Usuário'}
+                                        </Button>
+                                    </div>
+
+                                    {companyUsers.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveUser(companyUsers[0].user_id)}
+                                            className="w-full text-center text-xs text-red-400 hover:text-red-600 font-medium py-2 transition-colors"
+                                        >
+                                            Remover vínculo deste usuário
+                                        </button>
+                                    )}
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="pt-6 border-t mt-6 flex justify-end">
+                            <Button variant="outline" onClick={() => setShowUsersModal(false)} className="w-full md:w-auto">
                                 Fechar
                             </Button>
                         </div>
