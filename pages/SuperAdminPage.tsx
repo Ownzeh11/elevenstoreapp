@@ -251,20 +251,26 @@ const SuperAdminPage: React.FC = () => {
 
     const handleRemoveUser = async (userId: string) => {
         if (!selectedCompany) return;
-        if (!confirm('Remover este usuário desta empresa?')) return;
+        if (!confirm('ATENÇÃO: Isso excluirá PERMANENTEMENTE as credenciais de acesso deste usuário. Confirmar?')) return;
 
         try {
-            const { error } = await supabase
-                .from('company_users')
-                .delete()
-                .eq('company_id', selectedCompany.id)
-                .eq('user_id', userId);
+            setIsAddingUser(true); // Re-use indicator for loading
+            const { error: fnError } = await supabase.functions.invoke('manage-company-admin', {
+                body: {
+                    action: 'delete_user',
+                    user_id: userId
+                }
+            });
 
-            if (error) throw error;
-            setCompanyUsers(companyUsers.filter(cu => cu.user_id !== userId));
-        } catch (error) {
+            if (fnError) throw fnError;
+
+            setCompanyUsers([]);
+            setAddUserFormData({ email: '', role: 'owner', password: '' });
+        } catch (error: any) {
             console.error('Error removing user:', error);
-            alert('Erro ao remover usuário.');
+            alert('Erro ao excluir usuário: ' + (error.message || 'Erro desconhecido'));
+        } finally {
+            setIsAddingUser(false);
         }
     };
 

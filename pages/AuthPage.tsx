@@ -24,12 +24,37 @@ const AuthPage: React.FC = () => {
                 setMessage({ type: 'success', text: 'Verifique seu e-mail para confirmar o cadastro!' });
                 setMode('login'); // Switch to login after successful signup intent
             } else {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { data, error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
                 if (error) throw error;
-                // Navigation will be handled by state change in App.tsx
+
+                // --- License Check ---
+                if (data.user) {
+                    const { data: userCompanyData, error: userCompanyError } = await supabase
+                        .from('company_users')
+                        .select('company:companies(status)')
+                        .eq('user_id', data.user.id)
+                        .maybeSingle();
+
+                    const companyStatus = (userCompanyData?.company as any)?.status;
+
+                    if (userCompanyData?.company && companyStatus !== 'active') {
+                        // For Super Admins, allow entry to handle the issue
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('role')
+                            .eq('id', data.user.id)
+                            .single();
+
+                        if (profile?.role !== 'SUPER_ADMIN') {
+                            await supabase.auth.signOut();
+                            throw new Error('Sua licença expirou ou está bloqueada. Por favor, entre em contato com o suporte.');
+                        }
+                    }
+                }
+                // ---------------------
             }
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message || 'Ocorreu um erro durante a autenticação.' });
@@ -48,8 +73,8 @@ const AuthPage: React.FC = () => {
 
             <div className="max-w-md w-full space-y-8 relative z-10 bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20">
                 <div>
-                    <div className="mx-auto h-12 w-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-indigo-200 shadow-lg transform rotate-3">
-                        <Lock className="h-6 w-6" />
+                    <div className="mx-auto flex items-center justify-center transform hover:scale-105 transition-transform duration-300">
+                        <img src="/logo.png" alt="ElevenStore Logo" className="h-14 w-auto object-contain" />
                     </div>
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
                         {mode === 'login' ? 'Bem-vindo de volta' : 'Criar nova conta'}
