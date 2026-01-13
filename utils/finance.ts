@@ -10,8 +10,15 @@ export const createTransaction = async (data: {
     reference_type?: 'sale' | 'reversal' | 'initial' | 'manual';
     origin?: 'product_sale' | 'service_sale' | 'manual';
     category?: 'product' | 'service' | 'other';
+    status?: 'paid' | 'pending';
+    due_date?: string;
 }) => {
-    const { error } = await supabase.from('transactions').insert([data]);
+    // Default status to 'paid' if not provided
+    const payload = {
+        ...data,
+        status: data.status || 'paid'
+    };
+    const { error } = await supabase.from('transactions').insert([payload]);
     if (error) throw error;
 };
 
@@ -34,8 +41,9 @@ export const createReversal = async (transaction: Transaction) => {
 export const fetchTotalBalance = async (companyId: string) => {
     const { data, error } = await supabase
         .from('transactions')
-        .select('amount, type')
-        .eq('company_id', companyId);
+        .select('amount, type, status')
+        .eq('company_id', companyId)
+        .eq('status', 'paid');
 
     if (error) throw error;
 

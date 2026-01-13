@@ -54,6 +54,8 @@ export interface Transaction {
   reference_type?: 'sale' | 'reversal' | 'initial' | 'manual';
   origin?: 'product_sale' | 'service_sale' | 'manual';
   category?: 'product' | 'service' | 'other';
+  status?: 'paid' | 'pending';
+  due_date?: string;
 }
 
 export interface SaleItem {
@@ -76,6 +78,8 @@ export interface Sale {
   discount_value: number;
   discount_type: 'amount' | 'percentage';
   total: number;
+  payment_method: 'dinheiro' | 'cartão' | 'pix';
+  installments: number;
   display_id: number;
   items?: SaleItem[];
 }
@@ -108,6 +112,9 @@ export interface Company {
   name: string;
   status: 'active' | 'suspended' | 'blocked';
   plan: string;
+  address?: string;
+  phone?: string;
+  currency?: string;
   expires_at?: string;
   created_at: string;
 }
@@ -115,6 +122,7 @@ export interface Company {
 export interface Profile {
   id: string;
   email?: string;
+  username?: string;
   role: 'USER' | 'SUPER_ADMIN';
   created_at: string;
 }

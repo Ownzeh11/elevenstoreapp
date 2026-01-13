@@ -6,16 +6,12 @@ import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Pill from '../components/ui/Pill';
 import { Transaction, TableColumn } from '../types';
-import { Plus, Edit, Trash2, ShoppingCart, Wrench, ArrowUp, ArrowDown, X, Loader2, DollarSign } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown, X, Loader2, DollarSign, CheckCircle, Clock } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
-import { createTransaction, createReversal, fetchTotalBalance } from '../utils/finance';
+import { createTransaction, createReversal } from '../utils/finance';
 
-interface FinancePageProps {
-  onServiceClick?: () => void;
-  onSaleClick?: () => void;
-}
-
-const FinancePage: React.FC<FinancePageProps> = () => {
+const FinancePage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'cashflow' | 'receivables'>('cashflow');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,12 +25,15 @@ const FinancePage: React.FC<FinancePageProps> = () => {
     description: '',
     amount: '',
     type: 'income' as 'income' | 'expense',
+    status: 'paid' as 'paid' | 'pending',
+    due_date: new Date().toISOString().split('T')[0]
   });
 
   // Totals
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [cashBalance, setCashBalance] = useState(0);
+  const [pendingReceivables, setPendingReceivables] = useState(0);
 
   const location = useLocation();
 
@@ -84,17 +83,22 @@ const FinancePage: React.FC<FinancePageProps> = () => {
           const typedData = transactionData as Transaction[];
           setTransactions(typedData);
 
-          // Calculate totals
+          // Calculate totals (only paid for balance)
           const income = typedData
-            .filter(t => t.type === 'income')
+            .filter(t => t.type === 'income' && t.status === 'paid')
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
           const expense = typedData
-            .filter(t => t.type === 'expense')
+            .filter(t => t.type === 'expense' && t.status === 'paid')
+            .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+          const pending = typedData
+            .filter(t => t.type === 'income' && t.status === 'pending')
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
           setTotalIncome(income);
           setTotalExpense(expense);
           setCashBalance(income - expense);
+          setPendingReceivables(pending);
         }
       }
     } catch (error) {
@@ -115,7 +119,6 @@ const FinancePage: React.FC<FinancePageProps> = () => {
 
     const amount = parseFloat(formData.amount) || 0;
 
-    // Safeguard: Prevent expense if it exceeds balance
     if (formData.type === 'expense' && amount > cashBalance) {
       if (!confirm(`Atenção: Esta despesa (R$ ${amount.toFixed(2)}) ultrapassa o saldo atual em caixa (R$ ${cashBalance.toFixed(2)}). Deseja continuar mesmo assim?`)) {
         return;
@@ -125,7 +128,6 @@ const FinancePage: React.FC<FinancePageProps> = () => {
     setSubmitLoading(true);
     try {
       if (editingId) {
-        // Immutability: Reversal of old transaction + New transaction
         const oldTx = transactions.find(t => t.id === editingId);
         if (oldTx) {
           await createReversal(oldTx);
@@ -135,13 +137,14 @@ const FinancePage: React.FC<FinancePageProps> = () => {
             amount: amount,
             type: formData.type,
             reference_id: oldTx.id,
-            reference_type: 'manual', // Manual edit tracking
+            reference_type: 'manual',
             origin: 'manual',
-            category: 'other'
+            category: 'other',
+            status: formData.status,
+            due_date: formData.due_date
           });
         }
       } else {
-        // Insert new
         await createTransaction({
           company_id: companyId,
           description: formData.description,
@@ -149,13 +152,15 @@ const FinancePage: React.FC<FinancePageProps> = () => {
           type: formData.type,
           reference_type: 'manual',
           origin: 'manual',
-          category: 'other'
+          category: 'other',
+          status: formData.status,
+          due_date: formData.due_date
         });
       }
 
       setIsModalOpen(false);
       setEditingId(null);
-      setFormData({ description: '', amount: '', type: 'income' });
+      setFormData({ description: '', amount: '', type: 'income', status: 'paid', due_date: new Date().toISOString().split('T')[0] });
       fetchData();
     } catch (error: any) {
       alert('Erro ao salvar transação: ' + error.message);
@@ -164,16 +169,26 @@ const FinancePage: React.FC<FinancePageProps> = () => {
     }
   };
 
+  const handleReceive = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ status: 'paid' })
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      alert('Erro ao confirmar recebimento: ' + error.message);
+    }
+  };
+
   const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja estornar este registro? Todos os movimentos financeiros são mantidos para integridade.')) {
+    if (confirm('Tem certeza que deseja estornar este registro?')) {
       try {
         const txToDelete = transactions.find(t => t.id === id);
         if (txToDelete) {
           await createReversal(txToDelete);
-          // Instead of deleting, we let it stay but effectively neutralized by the reversal.
-          // However, if the user really wants it GONE from the list, we'd need a 'deleted' flag.
-          // The prompt says "All financial movements must be immutable (no silent overwrites)".
-          // I will refresh the data. The reversal will appear in the stream.
           fetchData();
         }
       } catch (error: any) {
@@ -188,212 +203,259 @@ const FinancePage: React.FC<FinancePageProps> = () => {
       description: transaction.description,
       amount: transaction.amount.toString(),
       type: transaction.type,
+      status: transaction.status || 'paid',
+      due_date: transaction.due_date || new Date().toISOString().split('T')[0]
     });
     setIsModalOpen(true);
   };
 
   const handleOpenModal = () => {
     setEditingId(null);
-    setFormData({ description: '', amount: '', type: 'income' });
+    setFormData({ description: '', amount: '', type: 'income', status: 'paid', due_date: new Date().toISOString().split('T')[0] });
     setIsModalOpen(true);
   };
 
-  const filteredTransactions = transactions.filter((transaction) =>
-    transaction.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getTransactionTypeVariant = (type: string) => {
-    return type === 'income' ? 'success' : 'danger';
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingId(null);
-    setFormData({ description: '', amount: '', type: 'income' });
-  };
+  const filteredTransactions = transactions.filter(t => {
+    const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
+    if (activeTab === 'cashflow') {
+      return matchesSearch && t.status === 'paid';
+    } else {
+      return matchesSearch && t.status === 'pending' && t.type === 'income';
+    }
+  });
 
   const formatCurrency = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
-  const formatDate = (isoString: string) => {
+  const formatDate = (isoString?: string) => {
     if (!isoString) return '-';
     return new Date(isoString).toLocaleDateString('pt-BR');
   };
 
   const columns: TableColumn<Transaction>[] = [
-    { key: 'created_at', header: 'Data', render: (t) => formatDate(t.created_at) },
-    { key: 'description', header: 'Descrição', cellClassName: 'font-medium' },
     {
-      key: 'type',
-      header: 'Tipo',
-      render: (t) => (
-        <Pill variant={getTransactionTypeVariant(t.type)}>
-          {t.type === 'income' ? 'Receita' : 'Despesa'}
-        </Pill>
-      ),
+      key: 'due_date',
+      header: activeTab === 'cashflow' ? 'Data' : 'Vencimento',
+      render: (t) => formatDate(t.due_date || t.created_at)
     },
+    { key: 'description', header: 'Descrição', cellClassName: 'font-medium' },
     { key: 'amount', header: 'Valor', render: (t) => formatCurrency(t.amount) },
     {
       key: 'actions',
       header: 'Ações',
-      render: (transaction) => (
+      render: (t) => (
         <div className="flex space-x-2">
+          {t.status === 'pending' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={CheckCircle}
+              onClick={() => handleReceive(t.id)}
+              className="text-green-600 hover:text-green-800"
+              title="Receber"
+            />
+          )}
           <Button
             variant="ghost"
             size="sm"
             icon={Edit}
-            aria-label={`Editar ${transaction.description}`}
-            onClick={() => handleEdit(transaction)}
+            onClick={() => handleEdit(t)}
             className="text-blue-600 hover:text-blue-800"
-          >
-          </Button>
+          />
           <Button
             variant="ghost"
             size="sm"
             icon={Trash2}
-            aria-label={`Excluir ${transaction.description}`}
-            onClick={() => handleDelete(transaction.id)}
+            onClick={() => handleDelete(t.id)}
             className="text-red-600 hover:text-red-800"
-          >
-          </Button>
+          />
         </div>
       ),
     },
   ];
 
   return (
-    <div className="p-4 md:p-8 relative">
+    <div className="p-4 md:p-8 relative max-w-7xl mx-auto space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Card className="flex flex-col bg-indigo-50 border-indigo-200">
-          <div className="flex items-start justify-between mb-3">
-            <h3 className="text-base font-semibold text-indigo-700">Saldo Geral (Caixa)</h3>
-            <DollarSign className="h-5 w-5 text-indigo-600" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-indigo-50 border-indigo-100 flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <h3 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider">Saldo em Caixa</h3>
+            <DollarSign size={20} className="text-indigo-600" />
           </div>
-          <div className="flex items-baseline mb-1">
-            <span className={`text-2xl font-bold ${cashBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <div>
+            <div className={`text-2xl font-bold mt-2 ${cashBalance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
               {formatCurrency(cashBalance)}
-            </span>
-          </div>
-          <p className="text-xs text-indigo-500 mt-2">Soma de todas entradas e saídas</p>
-        </Card>
-
-        <Card className="flex flex-col">
-          <div className="flex items-start justify-between mb-3">
-            <h3 className="text-base font-medium text-gray-500">Receitas Totais</h3>
-            <ArrowUp className="h-5 w-5 text-green-500" />
-          </div>
-          <div className="flex items-baseline mb-1">
-            <span className="text-2xl font-bold text-gray-900">
-              {formatCurrency(totalIncome)}
-            </span>
+            </div>
+            <p className="text-xs text-indigo-500 mt-1">Líquido confirmado</p>
           </div>
         </Card>
 
-        <Card className="flex flex-col">
-          <div className="flex items-start justify-between mb-3">
-            <h3 className="text-base font-medium text-gray-500">Despesas Totais</h3>
-            <ArrowDown className="h-5 w-5 text-red-500" />
+        <Card className="flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Receitas (Confirmadas)</h3>
+            <ArrowUp size={20} className="text-green-500" />
           </div>
-          <div className="flex items-baseline mb-1">
-            <span className="text-2xl font-bold text-gray-900">
-              {formatCurrency(totalExpense)}
-            </span>
+          <div className="text-2xl font-bold mt-2 text-gray-900">{formatCurrency(totalIncome)}</div>
+        </Card>
+
+        <Card className="flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Despesas (Pagas)</h3>
+            <ArrowDown size={20} className="text-red-500" />
+          </div>
+          <div className="text-2xl font-bold mt-2 text-gray-900">{formatCurrency(totalExpense)}</div>
+        </Card>
+
+        <Card className="bg-amber-50 border-amber-100 flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <h3 className="text-sm font-semibold text-amber-700 uppercase tracking-wider">A Receber</h3>
+            <Clock size={20} className="text-amber-600" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold mt-2 text-gray-900">{formatCurrency(pendingReceivables)}</div>
+            <p className="text-xs text-amber-600 mt-1">Vendas parceladas/pendentes</p>
           </div>
         </Card>
       </div>
 
-      {/* Entry Records */}
-      <Card>
-        <div className="flex flex-col sm:flex-row items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 sm:mb-0">Registros Financeiros</h2>
-          <Input
-            id="transaction-search"
-            type="search"
-            placeholder="Buscar..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-xs mb-4 sm:mb-0 sm:mr-4"
-          />
-          <Button variant="primary" icon={Plus} onClick={handleOpenModal}>
-            Novo Registro
-          </Button>
+      {/* Main Content */}
+      <Card className="overflow-hidden">
+        <div className="border-b border-gray-100">
+          <div className="flex p-4 pb-0 bg-gray-50/50">
+            <button
+              onClick={() => setActiveTab('cashflow')}
+              className={`px-6 py-2 text-sm font-medium transition-all border-b-2 ${activeTab === 'cashflow'
+                  ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              Fluxo de Caixa
+            </button>
+            <button
+              onClick={() => setActiveTab('receivables')}
+              className={`px-6 py-2 text-sm font-medium transition-all border-b-2 ${activeTab === 'receivables'
+                  ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              Contas a Receber
+            </button>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">Carregando finanças...</div>
-        ) : filteredTransactions.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">Nenhum registro encontrado.</div>
-        ) : (
-          <Table data={filteredTransactions} columns={columns} rowKey="id" />
-        )}
+        <div className="p-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              {activeTab === 'cashflow' ? 'Movimentações Realizadas' : 'Futuros Recebimentos'}
+            </h2>
+            <div className="flex w-full sm:w-auto gap-3">
+              <Input
+                id="search"
+                type="search"
+                placeholder="Buscar descrição..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-xs"
+              />
+              <Button variant="primary" icon={Plus} onClick={handleOpenModal}>
+                Nova Transação
+              </Button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="p-20 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+              Nenhuma transação encontrada nesta categoria.
+            </div>
+          ) : (
+            <Table data={filteredTransactions} columns={columns} rowKey="id" />
+          )}
+        </div>
       </Card>
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h3 className="text-xl font-bold text-gray-900">
                 {editingId ? 'Editar Transação' : 'Nova Transação'}
               </h3>
-              <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                <input
-                  type="text"
-                  name="description"
+            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+              <Input
+                id="description"
+                label="Descrição"
+                name="description"
+                required
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Ex: Aluguel, Venda de Produto..."
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  id="amount"
+                  label="Valor (R$)"
+                  name="amount"
+                  type="number"
+                  step="0.01"
                   required
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                  value={formData.description}
+                  value={formData.amount}
                   onChange={handleInputChange}
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="amount"
-                    required
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                    value={formData.amount}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+
+                <div className="space-y-1">
+                  <label className="block text-sm font-semibold text-gray-700">Tipo</label>
                   <select
                     name="type"
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
                     value={formData.type}
                     onChange={handleInputChange}
                   >
-                    <option value="income">Receita</option>
-                    <option value="expense">Despesa</option>
+                    <option value="income">Receita (Entrada)</option>
+                    <option value="expense">Despesa (Saída)</option>
                   </select>
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-semibold text-gray-700">Status</label>
+                  <select
+                    name="status"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                  >
+                    <option value="paid">Confirmado / Pago</option>
+                    <option value="pending">Pendente (Agendado)</option>
+                  </select>
+                </div>
+
+                <Input
+                  id="due_date"
+                  label="Data / Vencimento"
+                  name="due_date"
+                  type="date"
+                  required
+                  value={formData.due_date}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <Button variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>
                   Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 flex items-center"
-                >
-                  {submitLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                </Button>
+                <Button type="submit" variant="primary" className="flex-1" disabled={submitLoading}>
+                  {submitLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Salvar
-                </button>
+                </Button>
               </div>
             </form>
           </div>

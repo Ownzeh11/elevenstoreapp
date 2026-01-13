@@ -50,7 +50,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
     discount_value: '0',
     discount_type: 'amount' as 'amount' | 'percentage',
     total: '0.00',
-    date: getLocalDateString()
+    date: getLocalDateString(),
+    payment_method: 'dinheiro' as 'dinheiro' | 'cartão' | 'pix',
+    installments: '1'
   });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -90,7 +92,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       discount_value: '0',
       discount_type: 'amount',
       total: '0.00',
-      date: getLocalDateString()
+      date: getLocalDateString(),
+      payment_method: 'dinheiro',
+      installments: '1'
     });
     setNewItem({ type: 'product', id: '', quantity: 1 });
   };
@@ -237,7 +241,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
           discount_value: parseFloat(formData.discount_value),
           discount_type: formData.discount_type,
           total: parseFloat(formData.total),
-          date: formData.date
+          date: formData.date,
+          payment_method: formData.payment_method,
+          installments: parseInt(formData.installments) || 1
         }
       ]).select().single();
 
@@ -281,30 +287,50 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
 
       const saleRef = `Venda #${String(saleData.display_id).padStart(4, '0')}`;
 
-      if (productTotal > 0) {
-        await createTransaction({
-          company_id: companyId,
-          description: `${saleRef} (Produtos) - ${formData.customer}`,
-          amount: productTotal,
-          type: 'income',
-          reference_id: newSaleId,
-          reference_type: 'sale',
-          origin: 'product_sale',
-          category: 'product'
-        });
-      }
+      const installmentsCount = parseInt(formData.installments) || 1;
+      const amountPerInstallmentProduct = productTotal / installmentsCount;
+      const amountPerInstallmentService = serviceTotal / installmentsCount;
 
-      if (serviceTotal > 0) {
-        await createTransaction({
-          company_id: companyId,
-          description: `${saleRef} (Serviços) - ${formData.customer}`,
-          amount: serviceTotal,
-          type: 'income',
-          reference_id: newSaleId,
-          reference_type: 'sale',
-          origin: 'service_sale',
-          category: 'service'
-        });
+      for (let i = 0; i < installmentsCount; i++) {
+        const dueDate = new Date(formData.date);
+        dueDate.setMonth(dueDate.getMonth() + i);
+        const dueDateStr = getLocalDateString(dueDate);
+        const isFirst = i === 0;
+        // status is 'paid' for first installment if method is not card? 
+        // Or all pending if user prefers 'Contas a Receber' management.
+        // Let's make it 'paid' for first installment of 'dinheiro'/'pix', 
+        // and 'pending' for all others or all 'cartão' installments.
+        const status = (formData.payment_method !== 'cartão' && isFirst) ? 'paid' : 'pending';
+
+        if (productTotal > 0) {
+          await createTransaction({
+            company_id: companyId,
+            description: `${saleRef} (Produtos) ${i + 1}/${installmentsCount} - ${formData.customer}`,
+            amount: amountPerInstallmentProduct,
+            type: 'income',
+            reference_id: newSaleId,
+            reference_type: 'sale',
+            origin: 'product_sale',
+            category: 'product',
+            status: status as 'paid' | 'pending',
+            due_date: dueDateStr
+          });
+        }
+
+        if (serviceTotal > 0) {
+          await createTransaction({
+            company_id: companyId,
+            description: `${saleRef} (Serviços) ${i + 1}/${installmentsCount} - ${formData.customer}`,
+            amount: amountPerInstallmentService,
+            type: 'income',
+            reference_id: newSaleId,
+            reference_type: 'sale',
+            origin: 'service_sale',
+            category: 'service',
+            status: status as 'paid' | 'pending',
+            due_date: dueDateStr
+          });
+        }
       }
 
       // If no items (legacy or manual amount), create one unified entry
@@ -800,6 +826,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                     value={formData.total}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
                   <input
@@ -811,7 +840,36 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                     onChange={handleInputChange}
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
+                  <select
+                    name="payment_method"
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                    value={formData.payment_method}
+                    onChange={handleInputChange}
+                  >
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="cartão">Cartão</option>
+                    <option value="pix">Pix</option>
+                  </select>
+                </div>
               </div>
+
+              {formData.payment_method === 'cartão' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Parcelas</label>
+                  <select
+                    name="installments"
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                    value={formData.installments}
+                    onChange={handleInputChange}
+                  >
+                    {[...Array(12)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>{i + 1}x</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="pt-4 flex justify-end space-x-3">
                 <button
@@ -833,155 +891,159 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div >
       )}
 
       {/* New Customer Modal (Nested) */}
-      {isCustomerModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Novo Cliente Rápido</h3>
-              <button onClick={() => setIsCustomerModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
-              </button>
+      {
+        isCustomerModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-lg font-semibold text-gray-900">Novo Cliente Rápido</h3>
+                <button onClick={() => setIsCustomerModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <form onSubmit={handleQuickCustomerSubmit} className="p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                    value={quickCustomerName}
+                    onChange={(e) => setQuickCustomerName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                  <input
+                    type="tel"
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                    value={quickCustomerPhone}
+                    onChange={(e) => setQuickCustomerPhone(e.target.value)}
+                  />
+                </div>
+                <div className="pt-4 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomerModalOpen(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitLoading}
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 flex items-center"
+                  >
+                    {submitLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salvar Cliente
+                  </button>
+                </div>
+              </form>
             </div>
-            <form onSubmit={handleQuickCustomerSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                  value={quickCustomerName}
-                  onChange={(e) => setQuickCustomerName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                <input
-                  type="tel"
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                  value={quickCustomerPhone}
-                  onChange={(e) => setQuickCustomerPhone(e.target.value)}
-                />
-              </div>
-              <div className="pt-4 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setIsCustomerModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 flex items-center"
-                >
-                  {submitLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Salvar Cliente
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+        )
+      }
       {/* Sales Details Modal */}
-      {isDetailsModalOpen && selectedSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Detalhes da Venda {formatId(selectedSale.display_id)}
-              </h3>
-              <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Cliente</p>
-                  <p className="font-semibold">{selectedSale.customer}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Data</p>
-                  <p className="font-semibold">{formatDateDisplay(selectedSale.date)}</p>
-                </div>
+      {
+        isDetailsModalOpen && selectedSale && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Detalhes da Venda {formatId(selectedSale.display_id)}
+                </h3>
+                <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-5 w-5" />
+                </button>
               </div>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">Cliente</p>
+                    <p className="font-semibold">{selectedSale.customer}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Data</p>
+                    <p className="font-semibold">{formatDateDisplay(selectedSale.date)}</p>
+                  </div>
+                </div>
 
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-3 py-2">Item</th>
-                      <th className="px-3 py-2 text-center">Qtd</th>
-                      <th className="px-3 py-2 text-right">Preço</th>
-                      <th className="px-3 py-2 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {detailsLoading ? (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 border-b">
                       <tr>
-                        <td colSpan={4} className="px-3 py-8 text-center text-gray-500">
-                          Carregando itens...
-                        </td>
+                        <th className="px-3 py-2">Item</th>
+                        <th className="px-3 py-2 text-center">Qtd</th>
+                        <th className="px-3 py-2 text-right">Preço</th>
+                        <th className="px-3 py-2 text-right">Total</th>
                       </tr>
-                    ) : selectedSaleItems.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-3 py-4 text-center text-gray-500">
-                          Nenhum item encontrado.
-                        </td>
-                      </tr>
-                    ) : (
-                      selectedSaleItems.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="px-3 py-2 font-medium">
-                            {item.product?.name || item.service?.name || 'Item desconhecido'}
+                    </thead>
+                    <tbody className="divide-y">
+                      {detailsLoading ? (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-8 text-center text-gray-500">
+                            Carregando itens...
                           </td>
-                          <td className="px-3 py-2 text-center">{item.quantity}</td>
-                          <td className="px-3 py-2 text-right">R$ {item.unit_price.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right font-semibold">R$ {item.total_price.toFixed(2)}</td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                  {!detailsLoading && (
-                    <tfoot className="bg-gray-50 border-t">
-                      {selectedSale.discount_value > 0 && (
-                        <>
-                          <tr className="text-gray-600">
-                            <td colSpan={3} className="px-3 py-1 text-right italic">Subtotal:</td>
-                            <td className="px-3 py-1 text-right italic font-normal">R$ {selectedSale.subtotal?.toFixed(2) || selectedSale.total.toFixed(2)}</td>
+                      ) : selectedSaleItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-4 text-center text-gray-500">
+                            Nenhum item encontrado.
+                          </td>
+                        </tr>
+                      ) : (
+                        selectedSaleItems.map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="px-3 py-2 font-medium">
+                              {item.product?.name || item.service?.name || 'Item desconhecido'}
+                            </td>
+                            <td className="px-3 py-2 text-center">{item.quantity}</td>
+                            <td className="px-3 py-2 text-right">R$ {item.unit_price.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right font-semibold">R$ {item.total_price.toFixed(2)}</td>
                           </tr>
-                          <tr className="text-red-600">
-                            <td colSpan={3} className="px-3 py-1 text-right italic">Desconto ({selectedSale.discount_type === 'percentage' ? `${selectedSale.discount_value}%` : `R$ ${selectedSale.discount_value.toFixed(2)}`}):</td>
-                            <td className="px-3 py-1 text-right italic font-normal">- R$ {((selectedSale.subtotal || selectedSale.total) - selectedSale.total).toFixed(2)}</td>
-                          </tr>
-                        </>
+                        ))
                       )}
-                      <tr className="font-bold text-gray-900 border-t">
-                        <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
-                        <td className="px-3 py-2 text-right">R$ {selectedSale.total.toFixed(2)}</td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
+                    </tbody>
+                    {!detailsLoading && (
+                      <tfoot className="bg-gray-50 border-t">
+                        {selectedSale.discount_value > 0 && (
+                          <>
+                            <tr className="text-gray-600">
+                              <td colSpan={3} className="px-3 py-1 text-right italic">Subtotal:</td>
+                              <td className="px-3 py-1 text-right italic font-normal">R$ {selectedSale.subtotal?.toFixed(2) || selectedSale.total.toFixed(2)}</td>
+                            </tr>
+                            <tr className="text-red-600">
+                              <td colSpan={3} className="px-3 py-1 text-right italic">Desconto ({selectedSale.discount_type === 'percentage' ? `${selectedSale.discount_value}%` : `R$ ${selectedSale.discount_value.toFixed(2)}`}):</td>
+                              <td className="px-3 py-1 text-right italic font-normal">- R$ {((selectedSale.subtotal || selectedSale.total) - selectedSale.total).toFixed(2)}</td>
+                            </tr>
+                          </>
+                        )}
+                        <tr className="font-bold text-gray-900 border-t">
+                          <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
+                          <td className="px-3 py-2 text-right">R$ {selectedSale.total.toFixed(2)}</td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
               </div>
-            </div>
-            <div className="p-4 border-t flex justify-end">
-              <button
-                onClick={() => setIsDetailsModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-              >
-                Fechar
-              </button>
+              <div className="p-4 border-t flex justify-end">
+                <button
+                  onClick={() => setIsDetailsModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 
