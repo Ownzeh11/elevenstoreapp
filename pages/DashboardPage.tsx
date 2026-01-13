@@ -102,14 +102,25 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
       setActivities(combinedActivities);
 
       // 6. Calculate Stats
-      const todayStr = new Date().toISOString().split('T')[0];
+      const getLocalDateString = (date = new Date()) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const todayStr = getLocalDateString();
 
       const income = allTransactions?.filter(t => t.type === 'income') || [];
       const expenses = allTransactions?.filter(t => t.type === 'expense') || [];
 
       const cashBalance = income.reduce((acc, t) => acc + Number(t.amount), 0) - expenses.reduce((acc, t) => acc + Number(t.amount), 0);
 
-      const todayTxs = allTransactions?.filter(t => t.created_at?.startsWith(todayStr)) || [];
+      const todayTxs = allTransactions?.filter(t => {
+        if (!t.created_at) return false;
+        const txLocalDate = getLocalDateString(new Date(t.created_at));
+        return txLocalDate === todayStr;
+      }) || [];
 
       // Net Sales = Today's Item Income - Today's Item Reversals
       const salesToday = todayTxs

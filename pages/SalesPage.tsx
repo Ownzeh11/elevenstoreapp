@@ -13,6 +13,19 @@ interface SalesPageProps {
   onSaleClick: () => void;
 }
 
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateDisplay = (dateStr: string) => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+};
+
 const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -37,7 +50,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
     discount_value: '0',
     discount_type: 'amount' as 'amount' | 'percentage',
     total: '0.00',
-    date: new Date().toISOString().split('T')[0]
+    date: getLocalDateString()
   });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -77,7 +90,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       discount_value: '0',
       discount_type: 'amount',
       total: '0.00',
-      date: new Date().toISOString().split('T')[0]
+      date: getLocalDateString()
     });
     setNewItem({ type: 'product', id: '', quantity: 1 });
   };
@@ -483,7 +496,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       render: (sale) => <span className="font-medium text-gray-900">{formatId(sale.display_id)}</span>
     },
     { key: 'customer', header: 'Cliente' },
-    { key: 'date', header: 'Data', render: (sale) => new Date(sale.date).toLocaleDateString('pt-BR') },
+    { key: 'date', header: 'Data', render: (sale) => formatDateDisplay(sale.date) },
     { key: 'total', header: 'Total', render: (sale) => `R$ ${sale.total.toFixed(2).replace('.', ',')}` },
     {
       key: 'actions',
@@ -863,7 +876,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                 </div>
                 <div>
                   <p className="text-gray-500">Data</p>
-                  <p className="font-semibold">{new Date(selectedSale.date).toLocaleDateString('pt-BR')}</p>
+                  <p className="font-semibold">{formatDateDisplay(selectedSale.date)}</p>
                 </div>
               </div>
 
