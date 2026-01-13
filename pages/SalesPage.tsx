@@ -5,7 +5,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import { Sale, TableColumn, Product, SaleItem, Service, Transaction } from '../types';
-import { ShoppingCart, Eye, RotateCcw, Filter, Plus, X, Loader2, UserPlus, Trash } from 'lucide-react';
+import { ShoppingCart, Eye, RotateCcw, Filter, Plus, X, Loader2, UserPlus, Trash, Tag, DollarSign, TrendingUp } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 import { createTransaction, createReversal } from '../utils/finance';
 
@@ -379,23 +379,23 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
     // Date filter
     let matchesDate = true;
     if (startDate || endDate) {
-      const saleDate = new Date(sale.date);
-      saleDate.setHours(0, 0, 0, 0);
-
-      if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        if (saleDate < start) matchesDate = false;
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(0, 0, 0, 0);
-        if (saleDate > end) matchesDate = false;
-      }
+      // Use string comparison for YYYY-MM-DD
+      if (startDate && sale.date < startDate) matchesDate = false;
+      if (endDate && sale.date > endDate) matchesDate = false;
     }
 
     return matchesSearch && matchesDate;
   });
+
+  // Calculate period stats
+  const periodStats = filteredSales.reduce((acc, sale) => {
+    const subtotal = sale.subtotal || sale.total;
+    acc.count += 1;
+    acc.subtotal += subtotal;
+    acc.discount += subtotal - sale.total;
+    acc.total += sale.total;
+    return acc;
+  }, { count: 0, subtotal: 0, discount: 0, total: 0 });
 
   const handleViewDetails = async (sale: Sale) => {
     setSelectedSale(sale);
@@ -556,7 +556,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
 
       {isFilterOpen && (
         <Card className="mb-6 bg-gray-50 border border-gray-200">
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex flex-col sm:flex-row gap-4 items-end mb-6 pb-6 border-b border-gray-200">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
               <input
@@ -582,6 +582,37 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
             >
               Limpar Filtros
             </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Vendas</span>
+                <ShoppingCart size={16} className="text-blue-500" />
+              </div>
+              <div className="text-xl font-bold text-gray-900">{periodStats.count}</div>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Bruto</span>
+                <DollarSign size={16} className="text-gray-400" />
+              </div>
+              <div className="text-xl font-bold text-gray-900">R$ {periodStats.subtotal.toFixed(2).replace('.', ',')}</div>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Descontos</span>
+                <Tag size={16} className="text-red-400" />
+              </div>
+              <div className="text-xl font-bold text-red-600">R$ {periodStats.discount.toFixed(2).replace('.', ',')}</div>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Líquido</span>
+                <TrendingUp size={16} className="text-green-500" />
+              </div>
+              <div className="text-xl font-bold text-indigo-700">R$ {periodStats.total.toFixed(2).replace('.', ',')}</div>
+            </div>
           </div>
         </Card>
       )}
