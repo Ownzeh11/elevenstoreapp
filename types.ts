@@ -78,8 +78,9 @@ export interface Sale {
   discount_value: number;
   discount_type: 'amount' | 'percentage';
   total: number;
-  payment_method: 'dinheiro' | 'cartão' | 'pix';
+  payment_method: 'dinheiro' | 'cartão' | 'pix' | 'promissória';
   installments: number;
+  down_payment?: number;
   display_id: number;
   items?: SaleItem[];
 }

@@ -5,7 +5,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import { Sale, TableColumn, Product, SaleItem, Service, Transaction } from '../types';
-import { ShoppingCart, Eye, RotateCcw, Filter, Plus, X, Loader2, UserPlus, Trash, Tag, DollarSign, TrendingUp } from 'lucide-react';
+import { ShoppingCart, Eye, RotateCcw, Filter, Plus, X, Loader2, UserPlus, Trash, Tag, DollarSign, TrendingUp, Calendar } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 import { createTransaction, createReversal } from '../utils/finance';
 
@@ -38,9 +38,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
 
   // Details Modal State
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [selectedSaleDetail, setSelectedSaleDetail] = useState<Sale | null>(null);
+  const [saleInstallments, setSaleInstallments] = useState<any[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [selectedSaleItems, setSelectedSaleItems] = useState<any[]>([]);
-  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false); // This one is still used for sale_items fetching
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,7 +54,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
     total: '0.00',
     date: getLocalDateString(),
     payment_method: 'dinheiro' as 'dinheiro' | 'cartão' | 'pix',
-    installments: '1'
+    installments: '1',
+    down_payment: ''
   });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -92,9 +95,10 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       discount_value: '0',
       discount_type: 'amount',
       total: '0.00',
-      date: getLocalDateString(),
+      date: getLocalDateString(new Date()),
       payment_method: 'dinheiro',
-      installments: '1'
+      installments: '1',
+      down_payment: ''
     });
     setNewItem({ type: 'product', id: '', quantity: 1 });
   };
@@ -243,7 +247,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
           total: parseFloat(formData.total),
           date: formData.date,
           payment_method: formData.payment_method,
-          installments: parseInt(formData.installments) || 1
+          installments: parseInt(formData.installments) || 1,
+          down_payment: parseFloat(formData.down_payment) || 0
         }
       ]).select().single();
 
@@ -269,49 +274,93 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
 
 
       // 3. Create Financial Transactions (Split by Product and Service)
-      // Apply discount proportionally to each part
-      const rawProductTotal = saleItems.filter(i => i.product_id).reduce((acc, i) => acc + i.total_price, 0);
-      const rawServiceTotal = saleItems.filter(i => i.service_id).reduce((acc, i) => acc + i.total_price, 0);
-
-      const totalSubtotal = rawProductTotal + rawServiceTotal;
-      const finalTotal = parseFloat(formData.total);
-
-      let productTotal = 0;
-      let serviceTotal = 0;
-
-      if (totalSubtotal > 0) {
-        const ratio = finalTotal / totalSubtotal;
-        productTotal = rawProductTotal * ratio;
-        serviceTotal = rawServiceTotal * ratio;
-      }
-
       const saleRef = `Venda #${String(saleData.display_id).padStart(4, '0')}`;
       const installmentsCount = parseInt(formData.installments) || 1;
+      const downPaymentValue = parseFloat(formData.down_payment) || 0;
 
-      // Split base date parts for safe shifting
-      const [year, month, day] = formData.date.split('-').map(Number);
+      // Calculate totals for splitting
+      const finalTotal = parseFloat(formData.total);
+      const amountToInstall = finalTotal - downPaymentValue;
 
-      if (productTotal > 0 || serviceTotal > 0) {
-        const amountPerInstallmentProduct = productTotal / installmentsCount;
-        const amountPerInstallmentService = serviceTotal / installmentsCount;
+      // 1. Handle Down Payment
+      if (downPaymentValue > 0) {
+        // Find which part (product/service) the down payment belongs to proportionally
+        const productTotal = saleItems.filter(it => it.product_id).reduce((acc, it) => acc + (it.unit_price * it.quantity), 0);
+        const serviceTotal = saleItems.filter(it => it.service_id).reduce((acc, it) => acc + (it.unit_price * it.quantity), 0);
+        const subtotal = productTotal + serviceTotal;
 
-        for (let i = 0; i < installmentsCount; i++) {
-          const dueDate = new Date(year, month - 1 + i, day);
+        const ratioProduct = subtotal > 0 ? productTotal / subtotal : 0.5;
+        const ratioService = subtotal > 0 ? serviceTotal / subtotal : 0.5;
+
+        if (productTotal > 0) {
+          await createTransaction({
+            company_id: companyId,
+            description: `${saleRef} (Entrada - Prod) - ${formData.customer}`,
+            amount: downPaymentValue * ratioProduct,
+            type: 'income',
+            reference_id: newSaleId,
+            reference_type: 'sale',
+            origin: 'product_sale',
+            category: 'product',
+            status: 'paid',
+            due_date: formData.date
+          });
+        }
+        if (serviceTotal > 0) {
+          await createTransaction({
+            company_id: companyId,
+            description: `${saleRef} (Entrada - Serv) - ${formData.customer}`,
+            amount: downPaymentValue * ratioService,
+            type: 'income',
+            reference_id: newSaleId,
+            reference_type: 'sale',
+            origin: 'service_sale',
+            category: 'service',
+            status: 'paid',
+            due_date: formData.date
+          });
+        }
+      }
+
+      // 2. Handle Installments
+      if (amountToInstall > 0) {
+        const installmentsToCreate = installmentsCount;
+        const amountPerInstalment = amountToInstall / installmentsToCreate;
+
+        const productTotal = saleItems.filter(it => it.product_id).reduce((acc, it) => acc + (it.unit_price * it.quantity), 0);
+        const serviceTotal = saleItems.filter(it => it.service_id).reduce((acc, it) => acc + (it.unit_price * it.quantity), 0);
+        const subtotal = productTotal + serviceTotal;
+
+        const ratioProduct = subtotal > 0 ? productTotal / subtotal : 1;
+        const ratioService = subtotal > 0 ? serviceTotal / subtotal : 0;
+
+        const [year, month, day] = formData.date.split('-').map(Number);
+
+        for (let i = 0; i < installmentsToCreate; i++) {
+          // Increment by 30 days per installment
+          const dueDate = new Date(year, month - 1, day + ((i + 1) * 30));
           const dueDateStr = getLocalDateString(dueDate);
-          const isFirst = i === 0;
-          const status = (formData.payment_method !== 'cartão' && isFirst) ? 'paid' : 'pending';
+
+          // If 1 installment and no down payment and NOT credit card, mark as paid
+          // Otherwise, follow the rule: Cartier/Promissoria/Pix installments are pending, except first cash/pix installment
+          const isFirstInstallment = i === 0;
+          let status: 'paid' | 'pending' = 'pending';
+
+          if (downPaymentValue === 0 && isFirstInstallment && installmentsCount === 1 && (formData.payment_method === 'dinheiro' || formData.payment_method === 'pix')) {
+            status = 'paid';
+          }
 
           if (productTotal > 0) {
             await createTransaction({
               company_id: companyId,
-              description: `${saleRef} (Produtos) ${i + 1}/${installmentsCount} - ${formData.customer}`,
-              amount: amountPerInstallmentProduct,
+              description: `${saleRef} (Prod) ${i + 1}/${installmentsToCreate} - ${formData.customer}`,
+              amount: amountPerInstalment * ratioProduct,
               type: 'income',
               reference_id: newSaleId,
               reference_type: 'sale',
               origin: 'product_sale',
               category: 'product',
-              status: status as 'paid' | 'pending',
+              status: status,
               due_date: dueDateStr
             });
           }
@@ -319,39 +368,17 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
           if (serviceTotal > 0) {
             await createTransaction({
               company_id: companyId,
-              description: `${saleRef} (Serviços) ${i + 1}/${installmentsCount} - ${formData.customer}`,
-              amount: amountPerInstallmentService,
+              description: `${saleRef} (Serv) ${i + 1}/${installmentsToCreate} - ${formData.customer}`,
+              amount: amountPerInstalment * ratioService,
               type: 'income',
               reference_id: newSaleId,
               reference_type: 'sale',
               origin: 'service_sale',
               category: 'service',
-              status: status as 'paid' | 'pending',
+              status: status,
               due_date: dueDateStr
             });
           }
-        }
-      } else if (finalTotal > 0) {
-        // Fallback or manual amount
-        const amountPerInstallment = finalTotal / installmentsCount;
-        for (let i = 0; i < installmentsCount; i++) {
-          const dueDate = new Date(year, month - 1 + i, day);
-          const dueDateStr = getLocalDateString(dueDate);
-          const isFirst = i === 0;
-          const status = (formData.payment_method !== 'cartão' && isFirst) ? 'paid' : 'pending';
-
-          await createTransaction({
-            company_id: companyId,
-            description: `${saleRef} ${i + 1}/${installmentsCount} - ${formData.customer}`,
-            amount: amountPerInstallment,
-            type: 'income',
-            reference_id: newSaleId,
-            reference_type: 'sale',
-            origin: 'manual',
-            category: 'other',
-            status: status as 'paid' | 'pending',
-            due_date: dueDateStr
-          });
         }
       }
 
@@ -362,7 +389,10 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
         discount_value: '0',
         discount_type: 'amount',
         total: '0.00',
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        payment_method: 'dinheiro',
+        installments: '1',
+        down_payment: ''
       });
       setSaleItems([]);
       fetchData();
@@ -431,10 +461,31 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
     return acc;
   }, { count: 0, subtotal: 0, discount: 0, total: 0 });
 
+  const fetchSaleDetails = async (sale: Sale) => {
+    try {
+      setLoadingDetails(true);
+      setSelectedSaleDetail(sale);
+
+      const { data: transactions, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('reference_id', sale.id)
+        .eq('reference_type', 'sale')
+        .order('due_date', { ascending: true });
+
+      if (error) throw error;
+      setSaleInstallments(transactions || []);
+    } catch (error) {
+      console.error('Error fetching sale details:', error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
   const handleViewDetails = async (sale: Sale) => {
-    setSelectedSale(sale);
     setIsDetailsModalOpen(true);
-    setDetailsLoading(true);
+    setDetailsLoading(true); // For sale_items
+    await fetchSaleDetails(sale); // For transactions/installments
     try {
       const { data, error } = await supabase
         .from('sale_items')
@@ -851,31 +902,46 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
                   <select
-                    name="payment_method"
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
                     value={formData.payment_method}
-                    onChange={handleInputChange}
+                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as any })}
                   >
                     <option value="dinheiro">Dinheiro</option>
                     <option value="cartão">Cartão</option>
                     <option value="pix">Pix</option>
+                    <option value="promissória">Promissória</option>
                   </select>
                 </div>
               </div>
 
-              {formData.payment_method === 'cartão' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Parcelas</label>
-                  <select
-                    name="installments"
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                    value={formData.installments}
-                    onChange={handleInputChange}
-                  >
-                    {[...Array(12)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>{i + 1}x</option>
-                    ))}
-                  </select>
+              {/* Conditionally show installments for Cartão and Promissória */}
+              {(formData.payment_method === 'cartão' || formData.payment_method === 'promissória') && (
+                <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Parcelas</label>
+                    <select
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                      value={formData.installments}
+                      onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                        <option key={n} value={n}>{n}x</option>
+                      ))}
+                    </select>
+                  </div>
+                  {parseInt(formData.installments) > 1 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Entrada (R$)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        placeholder="0,00"
+                        value={formData.down_payment}
+                        onChange={(e) => setFormData({ ...formData, down_payment: e.target.value })}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -957,12 +1023,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       }
       {/* Sales Details Modal */}
       {
-        isDetailsModalOpen && selectedSale && (
+        isDetailsModalOpen && selectedSaleDetail && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
               <div className="flex justify-between items-center p-4 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Detalhes da Venda {formatId(selectedSale.display_id)}
+                  Detalhes da Venda {formatId(selectedSaleDetail.display_id)}
                 </h3>
                 <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                   <X className="h-5 w-5" />
@@ -972,11 +1038,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-500">Cliente</p>
-                    <p className="font-semibold">{selectedSale.customer}</p>
+                    <p className="font-semibold">{selectedSaleDetail.customer}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Data</p>
-                    <p className="font-semibold">{formatDateDisplay(selectedSale.date)}</p>
+                    <p className="font-semibold">{formatDateDisplay(selectedSaleDetail.date)}</p>
                   </div>
                 </div>
 
@@ -1018,34 +1084,89 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                     </tbody>
                     {!detailsLoading && (
                       <tfoot className="bg-gray-50 border-t">
-                        {selectedSale.discount_value > 0 && (
+                        {selectedSaleDetail.discount_value > 0 && (
                           <>
                             <tr className="text-gray-600">
-                              <td colSpan={3} className="px-3 py-1 text-right italic">Subtotal:</td>
-                              <td className="px-3 py-1 text-right italic font-normal">R$ {selectedSale.subtotal?.toFixed(2) || selectedSale.total.toFixed(2)}</td>
+                              <td colSpan={3} className="px-3 py-1 text-right italic font-normal">Subtotal:</td>
+                              <td className="px-3 py-1 text-right italic font-normal">R$ {(selectedSaleDetail.total + (selectedSaleDetail.discount_type === 'percentage' ? (selectedSaleDetail.total / (1 - selectedSaleDetail.discount_value / 100)) * (selectedSaleDetail.discount_value / 100) : selectedSaleDetail.discount_value)).toFixed(2)}</td>
                             </tr>
                             <tr className="text-red-600">
-                              <td colSpan={3} className="px-3 py-1 text-right italic">Desconto ({selectedSale.discount_type === 'percentage' ? `${selectedSale.discount_value}%` : `R$ ${selectedSale.discount_value.toFixed(2)}`}):</td>
-                              <td className="px-3 py-1 text-right italic font-normal">- R$ {((selectedSale.subtotal || selectedSale.total) - selectedSale.total).toFixed(2)}</td>
+                              <td colSpan={3} className="px-3 py-1 text-right italic font-normal">Desconto ({selectedSaleDetail.discount_type === 'percentage' ? `${selectedSaleDetail.discount_value}%` : `R$ ${selectedSaleDetail.discount_value.toFixed(2)}`}):</td>
+                              <td className="px-3 py-1 text-right italic font-normal">- R$ {(selectedSaleDetail.discount_type === 'percentage' ? (selectedSaleDetail.total / (1 - selectedSaleDetail.discount_value / 100)) * (selectedSaleDetail.discount_value / 100) : selectedSaleDetail.discount_value).toFixed(2)}</td>
                             </tr>
                           </>
                         )}
                         <tr className="font-bold text-gray-900 border-t">
                           <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
-                          <td className="px-3 py-2 text-right">R$ {selectedSale.total.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">R$ {selectedSaleDetail.total.toFixed(2)}</td>
                         </tr>
                       </tfoot>
                     )}
                   </table>
                 </div>
+
+                <div className="mt-4 pt-4 border-t px-4">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Forma de Pagamento</p>
+                      <p className="text-sm font-medium text-gray-900 capitalize flex items-center">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>
+                        {selectedSaleDetail.payment_method}
+                      </p>
+                    </div>
+                    {selectedSaleDetail.installments > 1 && (
+                      <div>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Plano</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedSaleDetail.installments}x {selectedSaleDetail.down_payment ? `(com entrada de R$ ${selectedSaleDetail.down_payment.toFixed(2)})` : ''}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {saleInstallments.length > 0 && (
+                    <div className="mt-4 bg-gray-50 rounded-lg p-3">
+                      <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center">
+                        <Calendar className="h-3 w-3 mr-1 text-indigo-500" />
+                        Cronograma de Recebimento
+                      </h4>
+                      <div className="max-h-40 overflow-y-auto pr-1">
+                        <table className="w-full text-[11px] text-left">
+                          <thead>
+                            <tr className="text-gray-400 font-normal border-b">
+                              <th className="py-1">Vencimento</th>
+                              <th className="py-1">Descrição</th>
+                              <th className="py-1 text-right">Valor</th>
+                              <th className="py-2 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {saleInstallments.map((inst, idx) => (
+                              <tr key={inst.id} className="text-gray-600">
+                                <td className="py-2 font-medium">{inst.due_date ? new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</td>
+                                <td className="py-2 truncate max-w-[80px]" title={inst.description}>{inst.description.split(')')[1] || inst.description.split('-')[0]}</td>
+                                <td className="py-2 text-right font-semibold text-gray-900">R$ {inst.amount.toFixed(2)}</td>
+                                <td className="py-2 text-center">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${inst.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {inst.status === 'paid' ? 'Pago' : 'Pendente'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="p-4 border-t flex justify-end">
-                <button
+                <Button
                   onClick={() => setIsDetailsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                  variant="primary"
                 >
                   Fechar
-                </button>
+                </Button>
               </div>
             </div>
           </div>
