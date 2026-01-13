@@ -51,18 +51,22 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
       if (!userData) return;
       const companyId = userData.company_id;
 
-      // 1. Fetch Sales (Global to get unique customers, but we can also use customers table)
-      const { data: salesData } = await supabase
+      // 1. Fetch Sales
+      const { data: salesData, error: salesError } = await supabase
         .from('sales')
         .select('*')
         .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+        .order('date', { ascending: false });
+
+      if (salesError) console.error('Error fetching sales:', salesError);
 
       // 2. Fetch All Transactions for Balance
-      const { data: allTransactions } = await supabase
+      const { data: allTransactions, error: txError } = await supabase
         .from('transactions')
-        .select('amount, type, category, created_at, reference_type, status')
+        .select('*') // Safer to fetch all and handle missing columns in code
         .eq('company_id', companyId);
+
+      if (txError) console.error('Error fetching transactions:', txError);
 
       // 3. Fetch Low Stock Products
       const { data: allProducts } = await supabase

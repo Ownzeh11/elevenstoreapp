@@ -286,65 +286,73 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       }
 
       const saleRef = `Venda #${String(saleData.display_id).padStart(4, '0')}`;
-
       const installmentsCount = parseInt(formData.installments) || 1;
-      const amountPerInstallmentProduct = productTotal / installmentsCount;
-      const amountPerInstallmentService = serviceTotal / installmentsCount;
 
-      for (let i = 0; i < installmentsCount; i++) {
-        const dueDate = new Date(formData.date);
-        dueDate.setMonth(dueDate.getMonth() + i);
-        const dueDateStr = getLocalDateString(dueDate);
-        const isFirst = i === 0;
-        // status is 'paid' for first installment if method is not card? 
-        // Or all pending if user prefers 'Contas a Receber' management.
-        // Let's make it 'paid' for first installment of 'dinheiro'/'pix', 
-        // and 'pending' for all others or all 'cartão' installments.
-        const status = (formData.payment_method !== 'cartão' && isFirst) ? 'paid' : 'pending';
+      // Split base date parts for safe shifting
+      const [year, month, day] = formData.date.split('-').map(Number);
 
-        if (productTotal > 0) {
+      if (productTotal > 0 || serviceTotal > 0) {
+        const amountPerInstallmentProduct = productTotal / installmentsCount;
+        const amountPerInstallmentService = serviceTotal / installmentsCount;
+
+        for (let i = 0; i < installmentsCount; i++) {
+          const dueDate = new Date(year, month - 1 + i, day);
+          const dueDateStr = getLocalDateString(dueDate);
+          const isFirst = i === 0;
+          const status = (formData.payment_method !== 'cartão' && isFirst) ? 'paid' : 'pending';
+
+          if (productTotal > 0) {
+            await createTransaction({
+              company_id: companyId,
+              description: `${saleRef} (Produtos) ${i + 1}/${installmentsCount} - ${formData.customer}`,
+              amount: amountPerInstallmentProduct,
+              type: 'income',
+              reference_id: newSaleId,
+              reference_type: 'sale',
+              origin: 'product_sale',
+              category: 'product',
+              status: status as 'paid' | 'pending',
+              due_date: dueDateStr
+            });
+          }
+
+          if (serviceTotal > 0) {
+            await createTransaction({
+              company_id: companyId,
+              description: `${saleRef} (Serviços) ${i + 1}/${installmentsCount} - ${formData.customer}`,
+              amount: amountPerInstallmentService,
+              type: 'income',
+              reference_id: newSaleId,
+              reference_type: 'sale',
+              origin: 'service_sale',
+              category: 'service',
+              status: status as 'paid' | 'pending',
+              due_date: dueDateStr
+            });
+          }
+        }
+      } else if (finalTotal > 0) {
+        // Fallback or manual amount
+        const amountPerInstallment = finalTotal / installmentsCount;
+        for (let i = 0; i < installmentsCount; i++) {
+          const dueDate = new Date(year, month - 1 + i, day);
+          const dueDateStr = getLocalDateString(dueDate);
+          const isFirst = i === 0;
+          const status = (formData.payment_method !== 'cartão' && isFirst) ? 'paid' : 'pending';
+
           await createTransaction({
             company_id: companyId,
-            description: `${saleRef} (Produtos) ${i + 1}/${installmentsCount} - ${formData.customer}`,
-            amount: amountPerInstallmentProduct,
+            description: `${saleRef} ${i + 1}/${installmentsCount} - ${formData.customer}`,
+            amount: amountPerInstallment,
             type: 'income',
             reference_id: newSaleId,
             reference_type: 'sale',
-            origin: 'product_sale',
-            category: 'product',
+            origin: 'manual',
+            category: 'other',
             status: status as 'paid' | 'pending',
             due_date: dueDateStr
           });
         }
-
-        if (serviceTotal > 0) {
-          await createTransaction({
-            company_id: companyId,
-            description: `${saleRef} (Serviços) ${i + 1}/${installmentsCount} - ${formData.customer}`,
-            amount: amountPerInstallmentService,
-            type: 'income',
-            reference_id: newSaleId,
-            reference_type: 'sale',
-            origin: 'service_sale',
-            category: 'service',
-            status: status as 'paid' | 'pending',
-            due_date: dueDateStr
-          });
-        }
-      }
-
-      // If no items (legacy or manual amount), create one unified entry
-      if (productTotal === 0 && serviceTotal === 0 && parseFloat(formData.total) > 0) {
-        await createTransaction({
-          company_id: companyId,
-          description: `${saleRef} - ${formData.customer}`,
-          amount: parseFloat(formData.total),
-          type: 'income',
-          reference_id: newSaleId,
-          reference_type: 'sale',
-          origin: 'manual',
-          category: 'other'
-        });
       }
 
       setIsModalOpen(false);
