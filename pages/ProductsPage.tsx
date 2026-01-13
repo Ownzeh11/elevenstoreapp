@@ -442,21 +442,35 @@ const ProductsPage: React.FC = () => {
             </div>
 
             <div className="p-6 overflow-y-auto flex-grow print-area">
+              {/* Cabeçalho exclusivo para impressão */}
+              <div className="hidden print:block mb-8">
+                <div className="flex justify-between items-end border-b-2 border-gray-900 pb-4">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 uppercase tracking-tight">Relatório de Estoque</h1>
+                    <p className="text-gray-600 mt-1">Status atual do inventário da empresa</p>
+                  </div>
+                  <div className="text-right text-sm text-gray-500">
+                    <p>Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
+                    <p>Hora: {new Date().toLocaleTimeString('pt-BR')}</p>
+                  </div>
+                </div>
+              </div>
+
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b-2 border-gray-100">
-                    <th className="py-3 font-semibold text-gray-700">Produto</th>
-                    <th className="py-3 font-semibold text-gray-700 text-center">Quantidade</th>
-                    <th className="py-3 font-semibold text-gray-700 text-right">Preço Unit.</th>
-                    <th className="py-3 font-semibold text-gray-700 text-right">Valor Total</th>
+                  <tr className="border-b-2 border-gray-100 print:border-gray-900">
+                    <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Produto</th>
+                    <th className="py-3 font-semibold text-gray-700 text-center print:text-gray-900">Quantidade</th>
+                    <th className="py-3 font-semibold text-gray-700 text-right print:text-gray-900">Preço Unit.</th>
+                    <th className="py-3 font-semibold text-gray-700 text-right print:text-gray-900">Valor Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-50 print:divide-gray-200">
                   {products.map((product) => (
                     <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="py-4">
                         <p className="font-medium text-gray-900">{product.name}</p>
-                        {product.description && <p className="text-xs text-gray-500 truncate max-w-[200px]">{product.description}</p>}
+                        {product.description && <p className="text-xs text-gray-500 truncate max-w-[200px] print:max-w-none print:whitespace-normal">{product.description}</p>}
                       </td>
                       <td className="py-4 text-center text-gray-700">{product.quantity} un.</td>
                       <td className="py-4 text-right text-gray-700">R$ {product.price.toFixed(2).replace('.', ',')}</td>
@@ -468,25 +482,29 @@ const ProductsPage: React.FC = () => {
                 </tbody>
               </table>
 
-              <div className="mt-8 border-t-2 border-gray-100 pt-6">
+              <div className="mt-8 border-t-2 border-gray-100 pt-6 print:border-gray-900">
                 <div className="flex justify-end space-y-2 flex-col items-end">
-                  <div className="flex space-x-8 text-sm text-gray-600">
+                  <div className="flex space-x-8 text-sm text-gray-600 print:text-gray-900">
                     <span>Total de Produtos:</span>
                     <span className="font-medium">{totalProductsCount}</span>
                   </div>
-                  <div className="flex space-x-8 text-sm text-gray-600">
+                  <div className="flex space-x-8 text-sm text-gray-600 print:text-gray-900">
                     <span>Total de Itens:</span>
                     <span className="font-medium">{totalItemsCount} un.</span>
                   </div>
-                  <div className="flex space-x-8 text-xl font-bold text-gray-900 pt-2 border-t border-gray-100 w-full sm:w-auto mt-2 justify-end">
-                    <span className="mr-8">Valor Estimado:</span>
-                    <span className="text-indigo-600">R$ {totalStockValue.toFixed(2).replace('.', ',')}</span>
+                  <div className="flex space-x-8 text-xl font-bold text-gray-900 pt-2 border-t border-gray-100 w-full sm:w-auto mt-2 justify-end print:border-gray-900">
+                    <span className="mr-8">Valor Total em Estoque:</span>
+                    <span className="text-indigo-600 print:text-gray-900">R$ {totalStockValue.toFixed(2).replace('.', ',')}</span>
                   </div>
                 </div>
               </div>
+
+              <div className="hidden print:block mt-16 text-center text-xs text-gray-400 border-t pt-8">
+                <p>Este relatório é para uso interno e reflete a posição do estoque no momento da geração.</p>
+              </div>
             </div>
 
-            <div className="p-4 bg-gray-50 border-t flex justify-end shrink-0">
+            <div className="p-4 bg-gray-50 border-t flex justify-end shrink-0 print:hidden">
               <Button onClick={() => setIsReportOpen(false)}>Fechar</Button>
             </div>
           </div>
@@ -496,16 +514,35 @@ const ProductsPage: React.FC = () => {
       <style dangerouslySetInnerHTML={{
         __html: `
         @media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area { 
-            position: absolute; 
-            left: 0; 
-            top: 0; 
-            width: 100%; 
-            padding: 20px;
+          /* Esconde tudo no body */
+          body * { 
+            visibility: hidden !important; 
           }
-          .fixed, .bg-opacity-50, button:not(.printer-btn) { display: none !important; }
+          /* Mostra apenas a área de impressão e seus filhos */
+          .print-area, .print-area * { 
+            visibility: visible !important; 
+          }
+          /* Posiciona a área de impressão */
+          .print-area { 
+            position: fixed !important; 
+            left: 0 !important; 
+            top: 0 !important; 
+            width: 100% !important; 
+            height: auto !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: white !important;
+            z-index: 9999 !important;
+          }
+          /* Remove elementos de UI */
+          .fixed, .bg-opacity-50, button, .shrink-0 { 
+            display: none !important; 
+          }
+          /* Força cores pretas para melhor leitura */
+          .print-area * {
+            color: black !important;
+            border-color: #000 !important;
+          }
         }
       `}} />
     </div>
