@@ -419,7 +419,7 @@ const ProductsPage: React.FC = () => {
       )}
       {/* Modal de Relatório */}
       {isReportOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4 print-container">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-6 border-b shrink-0">
               <div>
@@ -435,13 +435,13 @@ const ProductsPage: React.FC = () => {
                 >
                   Imprimir
                 </Button>
-                <button onClick={() => setIsReportOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setIsReportOpen(false)} className="text-gray-400 hover:text-gray-600 print:hidden">
                   <X className="h-6 w-6" />
                 </button>
               </div>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-grow print-area">
+            <div className="p-6 overflow-y-auto flex-grow print-area" id="inventory-report-print">
               {/* Cabeçalho exclusivo para impressão */}
               <div className="hidden print:block mb-8">
                 <div className="flex justify-between items-end border-b-2 border-gray-900 pb-4">
@@ -514,34 +514,62 @@ const ProductsPage: React.FC = () => {
       <style dangerouslySetInnerHTML={{
         __html: `
         @media print {
-          /* Esconde tudo no body */
-          body * { 
-            visibility: hidden !important; 
+          /* Esconde Sidebar, Header e outros modais/botões */
+          aside, header, footer, button, .print\\:hidden {
+            display: none !important;
           }
-          /* Mostra apenas a área de impressão e seus filhos */
-          .print-area, .print-area * { 
-            visibility: visible !important; 
+
+          /* Garante que o conteúdo principal não tenha margens ou scroll travado */
+          .md\\:ml-64, main, #root {
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
           }
-          /* Posiciona a área de impressão */
-          .print-area { 
-            position: fixed !important; 
-            left: 0 !important; 
-            top: 0 !important; 
-            width: 100% !important; 
-            height: auto !important;
+
+          /* Esconde tudo dentro do ProductsPage exceto o Relatório */
+          .p-4.md\\:p-8 > *:not(.print-container), 
+          .grid, 
+          .flex-col.sm\\:flex-row, 
+          .shadow-xl:not(.print-container) {
+            display: none !important;
+          }
+
+          /* Estilo do Relatório */
+          .print-area {
+            position: relative !important;
+            display: block !important;
+            width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
+            visibility: visible !important;
+          }
+
+          /* Garante que o modal container não bloqueie a visualização */
+          .fixed {
+            position: relative !important;
+            display: block !important;
             background: white !important;
-            z-index: 9999 !important;
+            z-index: auto !important;
           }
-          /* Remove elementos de UI */
-          .fixed, .bg-opacity-50, button, .shrink-0 { 
-            display: none !important; 
+
+          .bg-black, .bg-opacity-50 {
+            display: none !important;
           }
-          /* Força cores pretas para melhor leitura */
-          .print-area * {
-            color: black !important;
-            border-color: #000 !important;
+
+          #inventory-report-print, 
+          #inventory-report-print * {
+            visibility: visible !important;
+          }
+          
+          /* Ajuste de tabela para impressão */
+          table {
+            width: 100% !important;
+            border-spacing: 0 !important;
+            border-collapse: collapse !important;
+          }
+          
+          th, td {
+            border-bottom: 1px solid #eee !important;
           }
         }
       `}} />
