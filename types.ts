@@ -72,6 +72,9 @@ export interface Sale {
   company_id?: string;
   customer: string;
   date: string; // YYYY-MM-DD
+  subtotal: number;
+  discount_value: number;
+  discount_type: 'amount' | 'percentage';
   total: number;
   display_id: number;
   items?: SaleItem[];

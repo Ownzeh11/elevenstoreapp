@@ -33,6 +33,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     customer: '',
+    subtotal: '0.00',
+    discount_value: '0',
+    discount_type: 'amount' as 'amount' | 'percentage',
     total: '0.00',
     date: new Date().toISOString().split('T')[0]
   });
@@ -68,7 +71,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
   const handleOpenModal = () => {
     setIsModalOpen(true);
     setSaleItems([]);
-    setFormData({ customer: '', total: '0.00', date: new Date().toISOString().split('T')[0] });
+    setFormData({
+      customer: '',
+      subtotal: '0.00',
+      discount_value: '0',
+      discount_type: 'amount',
+      total: '0.00',
+      date: new Date().toISOString().split('T')[0]
+    });
     setNewItem({ type: 'product', id: '', quantity: 1 });
   };
 
@@ -182,9 +192,22 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
 
   // Auto-calc total
   useEffect(() => {
-    const total = saleItems.reduce((acc, item) => acc + item.total_price, 0);
-    setFormData(prev => ({ ...prev, total: total.toFixed(2) }));
-  }, [saleItems]);
+    const subtotal = saleItems.reduce((acc, item) => acc + item.total_price, 0);
+    const discountVal = parseFloat(formData.discount_value) || 0;
+    let total = subtotal;
+
+    if (formData.discount_type === 'percentage') {
+      total = subtotal * (1 - discountVal / 100);
+    } else {
+      total = subtotal - discountVal;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      subtotal: subtotal.toFixed(2),
+      total: Math.max(0, total).toFixed(2)
+    }));
+  }, [saleItems, formData.discount_value, formData.discount_type]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,6 +220,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
         {
           company_id: companyId,
           customer: formData.customer,
+          subtotal: parseFloat(formData.subtotal),
+          discount_value: parseFloat(formData.discount_value),
+          discount_type: formData.discount_type,
           total: parseFloat(formData.total),
           date: formData.date
         }
@@ -224,8 +250,21 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
 
 
       // 3. Create Financial Transactions (Split by Product and Service)
-      const productTotal = saleItems.filter(i => i.product_id).reduce((acc, i) => acc + i.total_price, 0);
-      const serviceTotal = saleItems.filter(i => i.service_id).reduce((acc, i) => acc + i.total_price, 0);
+      // Apply discount proportionally to each part
+      const rawProductTotal = saleItems.filter(i => i.product_id).reduce((acc, i) => acc + i.total_price, 0);
+      const rawServiceTotal = saleItems.filter(i => i.service_id).reduce((acc, i) => acc + i.total_price, 0);
+
+      const totalSubtotal = rawProductTotal + rawServiceTotal;
+      const finalTotal = parseFloat(formData.total);
+
+      let productTotal = 0;
+      let serviceTotal = 0;
+
+      if (totalSubtotal > 0) {
+        const ratio = finalTotal / totalSubtotal;
+        productTotal = rawProductTotal * ratio;
+        serviceTotal = rawServiceTotal * ratio;
+      }
 
       const saleRef = `Venda #${String(saleData.display_id).padStart(4, '0')}`;
 
@@ -270,7 +309,14 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       }
 
       setIsModalOpen(false);
-      setFormData({ customer: '', total: '0.00', date: new Date().toISOString().split('T')[0] });
+      setFormData({
+        customer: '',
+        subtotal: '0.00',
+        discount_value: '0',
+        discount_type: 'amount',
+        total: '0.00',
+        date: new Date().toISOString().split('T')[0]
+      });
       setSaleItems([]);
       fetchData();
     } catch (error: any) {
@@ -663,6 +709,40 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Desconto</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="discount_value"
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                      value={formData.discount_value}
+                      onChange={handleInputChange}
+                    />
+                    <select
+                      name="discount_type"
+                      className="w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                      value={formData.discount_type}
+                      onChange={handleInputChange}
+                    >
+                      <option value="amount">R$</option>
+                      <option value="percentage">%</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subtotal (R$)</label>
+                  <input
+                    type="number"
+                    readOnly
+                    className="w-full rounded-md border-gray-300 shadow-sm bg-gray-100 sm:text-sm p-2 border cursor-not-allowed"
+                    value={formData.subtotal}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Valor Total (R$)</label>
@@ -672,7 +752,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                     name="total"
                     required
                     readOnly
-                    className="w-full rounded-md border-gray-300 shadow-sm bg-gray-100 sm:text-sm p-2 border cursor-not-allowed"
+                    className="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 text-indigo-700 font-bold sm:text-sm p-2 border cursor-not-allowed"
                     value={formData.total}
                   />
                 </div>
@@ -824,8 +904,20 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                     )}
                   </tbody>
                   {!detailsLoading && (
-                    <tfoot className="bg-gray-50 font-bold border-t">
-                      <tr>
+                    <tfoot className="bg-gray-50 border-t">
+                      {selectedSale.discount_value > 0 && (
+                        <>
+                          <tr className="text-gray-600">
+                            <td colSpan={3} className="px-3 py-1 text-right italic">Subtotal:</td>
+                            <td className="px-3 py-1 text-right italic font-normal">R$ {selectedSale.subtotal?.toFixed(2) || selectedSale.total.toFixed(2)}</td>
+                          </tr>
+                          <tr className="text-red-600">
+                            <td colSpan={3} className="px-3 py-1 text-right italic">Desconto ({selectedSale.discount_type === 'percentage' ? `${selectedSale.discount_value}%` : `R$ ${selectedSale.discount_value.toFixed(2)}`}):</td>
+                            <td className="px-3 py-1 text-right italic font-normal">- R$ {((selectedSale.subtotal || selectedSale.total) - selectedSale.total).toFixed(2)}</td>
+                          </tr>
+                        </>
+                      )}
+                      <tr className="font-bold text-gray-900 border-t">
                         <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
                         <td className="px-3 py-2 text-right">R$ {selectedSale.total.toFixed(2)}</td>
                       </tr>
