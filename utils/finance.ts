@@ -42,18 +42,18 @@ export const fetchTotalBalance = async (companyId: string) => {
     const { data, error } = await supabase
         .from('transactions')
         .select('amount, type, status')
-        .eq('company_id', companyId)
-        .eq('status', 'paid');
+        .eq('company_id', companyId);
 
     if (error) throw error;
 
     const income = data
-        .filter(t => t.type === 'income')
+        .filter(t => t.type === 'income' && (!t.status || t.status === 'paid'))
         .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
     const expense = data
-        .filter(t => t.type === 'expense')
+        .filter(t => t.type === 'expense' && (!t.status || t.status === 'paid'))
         .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
     return income - expense;
 };
+

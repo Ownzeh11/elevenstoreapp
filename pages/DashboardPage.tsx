@@ -61,7 +61,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
       // 2. Fetch All Transactions for Balance
       const { data: allTransactions } = await supabase
         .from('transactions')
-        .select('amount, type, category, created_at, reference_type')
+        .select('amount, type, category, created_at, reference_type, status')
         .eq('company_id', companyId);
 
       // 3. Fetch Low Stock Products
@@ -111,8 +111,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
 
       const todayStr = getLocalDateString();
 
-      const income = allTransactions?.filter(t => t.type === 'income') || [];
-      const expenses = allTransactions?.filter(t => t.type === 'expense') || [];
+      const income = allTransactions?.filter(t => t.type === 'income' && (!t.status || t.status === 'paid')) || [];
+      const expenses = allTransactions?.filter(t => t.type === 'expense' && (!t.status || t.status === 'paid')) || [];
 
       const cashBalance = income.reduce((acc, t) => acc + Number(t.amount), 0) - expenses.reduce((acc, t) => acc + Number(t.amount), 0);
 

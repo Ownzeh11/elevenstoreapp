@@ -85,10 +85,10 @@ const FinancePage: React.FC = () => {
 
           // Calculate totals (only paid for balance)
           const income = typedData
-            .filter(t => t.type === 'income' && t.status === 'paid')
+            .filter(t => t.type === 'income' && (t.status === 'paid' || !t.status))
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
           const expense = typedData
-            .filter(t => t.type === 'expense' && t.status === 'paid')
+            .filter(t => t.type === 'expense' && (t.status === 'paid' || !t.status))
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
           const pending = typedData
@@ -218,7 +218,7 @@ const FinancePage: React.FC = () => {
   const filteredTransactions = transactions.filter(t => {
     const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
     if (activeTab === 'cashflow') {
-      return matchesSearch && t.status === 'paid';
+      return matchesSearch && (t.status === 'paid' || !t.status);
     } else {
       return matchesSearch && t.status === 'pending' && t.type === 'income';
     }
@@ -324,8 +324,8 @@ const FinancePage: React.FC = () => {
             <button
               onClick={() => setActiveTab('cashflow')}
               className={`px-6 py-2 text-sm font-medium transition-all border-b-2 ${activeTab === 'cashflow'
-                  ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
             >
               Fluxo de Caixa
@@ -333,8 +333,8 @@ const FinancePage: React.FC = () => {
             <button
               onClick={() => setActiveTab('receivables')}
               className={`px-6 py-2 text-sm font-medium transition-all border-b-2 ${activeTab === 'receivables'
-                  ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
             >
               Contas a Receber
