@@ -61,7 +61,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
       // 2. Fetch All Transactions for Balance
       const { data: allTransactions } = await supabase
         .from('transactions')
-        .select('amount, type, category, created_at')
+        .select('amount, type, category, created_at, reference_type')
         .eq('company_id', companyId);
 
       // 3. Fetch Low Stock Products
@@ -109,16 +109,26 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
 
       const cashBalance = income.reduce((acc, t) => acc + Number(t.amount), 0) - expenses.reduce((acc, t) => acc + Number(t.amount), 0);
 
-      const salesToday = income
-        .filter(t => t.created_at?.startsWith(todayStr) && t.category !== 'service')
-        .reduce((acc, t) => acc + Number(t.amount), 0);
+      const todayTxs = allTransactions?.filter(t => t.created_at?.startsWith(todayStr)) || [];
 
-      const servicesToday = income
-        .filter(t => t.created_at?.startsWith(todayStr) && t.category === 'service')
-        .reduce((acc, t) => acc + Number(t.amount), 0);
+      // Net Sales = Today's Item Income - Today's Item Reversals
+      const salesToday = todayTxs
+        .filter(t => t.category !== 'service' && t.type === 'income')
+        .reduce((acc, t) => acc + Number(t.amount), 0) -
+        todayTxs
+          .filter(t => t.category !== 'service' && t.type === 'expense' && t.reference_type === 'reversal')
+          .reduce((acc, t) => acc + Number(t.amount), 0);
 
-      const expensesToday = expenses
-        .filter(t => t.created_at?.startsWith(todayStr))
+      const servicesToday = todayTxs
+        .filter(t => t.category === 'service' && t.type === 'income')
+        .reduce((acc, t) => acc + Number(t.amount), 0) -
+        todayTxs
+          .filter(t => t.category === 'service' && t.type === 'expense' && t.reference_type === 'reversal')
+          .reduce((acc, t) => acc + Number(t.amount), 0);
+
+      // Expenses Today = Everything that is NOT a reversal
+      const expensesToday = todayTxs
+        .filter(t => t.type === 'expense' && t.reference_type !== 'reversal')
         .reduce((acc, t) => acc + Number(t.amount), 0);
 
       setStats({
