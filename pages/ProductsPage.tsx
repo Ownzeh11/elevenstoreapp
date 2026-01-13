@@ -5,7 +5,7 @@ import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Pill from '../components/ui/Pill';
 import { Product, TableColumn } from '../types';
-import { Plus, Edit, Trash2, Search, X, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, X, Loader2, FileText, Printer, DollarSign, Package, LayoutGrid } from 'lucide-react';
 import { PRODUCT_ICONS } from '../constants';
 import { supabase } from '../utils/supabaseClient';
 
@@ -14,9 +14,15 @@ const ProductsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Stats calculation
+  const totalStockValue = products.reduce((acc, p) => acc + (p.price * p.quantity), 0);
+  const totalItemsCount = products.reduce((acc, p) => acc + p.quantity, 0);
+  const totalProductsCount = products.length;
 
   // New Product Form State
   const [formData, setFormData] = useState({
@@ -239,6 +245,37 @@ const ProductsPage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-8 relative">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <Card className="flex items-center space-x-4">
+          <div className="p-3 bg-blue-50 rounded-lg">
+            <DollarSign className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Valor em Estoque</p>
+            <p className="text-2xl font-bold text-gray-900">R$ {totalStockValue.toFixed(2).replace('.', ',')}</p>
+          </div>
+        </Card>
+        <Card className="flex items-center space-x-4">
+          <div className="p-3 bg-green-50 rounded-lg">
+            <Package className="h-6 w-6 text-green-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Total de Itens</p>
+            <p className="text-2xl font-bold text-gray-900">{totalItemsCount} un.</p>
+          </div>
+        </Card>
+        <Card className="flex items-center space-x-4">
+          <div className="p-3 bg-purple-50 rounded-lg">
+            <LayoutGrid className="h-6 w-6 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Total de Produtos</p>
+            <p className="text-2xl font-bold text-gray-900">{totalProductsCount}</p>
+          </div>
+        </Card>
+      </div>
+
       <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
         <Input
           id="product-search"
@@ -248,9 +285,24 @@ const ProductsPage: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-xs mb-4 sm:mb-0 sm:mr-4"
         />
-        <Button variant="primary" icon={Plus} onClick={() => { setEditingId(null); setFormData({ name: '', price: '', quantity: '', min_stock: '', status: 'Em Estoque', description: '' }); setIsModalOpen(true); }}>
-          Novo Produto
-        </Button>
+        <div className="flex space-x-3 w-full sm:w-auto">
+          <Button
+            variant="secondary"
+            icon={FileText}
+            onClick={() => setIsReportOpen(true)}
+            className="flex-1 sm:flex-none"
+          >
+            Relatório de Estoque
+          </Button>
+          <Button
+            variant="primary"
+            icon={Plus}
+            onClick={() => { setEditingId(null); setFormData({ name: '', price: '', quantity: '', min_stock: '', status: 'Em Estoque', description: '' }); setIsModalOpen(true); }}
+            className="flex-1 sm:flex-none"
+          >
+            Novo Produto
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -365,6 +417,97 @@ const ProductsPage: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Modal de Relatório */}
+      {isReportOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-6 border-b shrink-0">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Relatório de Inventário</h3>
+                <p className="text-sm text-gray-500">Posição em {new Date().toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="secondary"
+                  icon={Printer}
+                  onClick={() => window.print()}
+                  className="hidden sm:flex"
+                >
+                  Imprimir
+                </Button>
+                <button onClick={() => setIsReportOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-grow print-area">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-100">
+                    <th className="py-3 font-semibold text-gray-700">Produto</th>
+                    <th className="py-3 font-semibold text-gray-700 text-center">Quantidade</th>
+                    <th className="py-3 font-semibold text-gray-700 text-right">Preço Unit.</th>
+                    <th className="py-3 font-semibold text-gray-700 text-right">Valor Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {products.map((product) => (
+                    <tr key={product.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="py-4">
+                        <p className="font-medium text-gray-900">{product.name}</p>
+                        {product.description && <p className="text-xs text-gray-500 truncate max-w-[200px]">{product.description}</p>}
+                      </td>
+                      <td className="py-4 text-center text-gray-700">{product.quantity} un.</td>
+                      <td className="py-4 text-right text-gray-700">R$ {product.price.toFixed(2).replace('.', ',')}</td>
+                      <td className="py-4 text-right font-semibold text-gray-900">
+                        R$ {(product.price * product.quantity).toFixed(2).replace('.', ',')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="mt-8 border-t-2 border-gray-100 pt-6">
+                <div className="flex justify-end space-y-2 flex-col items-end">
+                  <div className="flex space-x-8 text-sm text-gray-600">
+                    <span>Total de Produtos:</span>
+                    <span className="font-medium">{totalProductsCount}</span>
+                  </div>
+                  <div className="flex space-x-8 text-sm text-gray-600">
+                    <span>Total de Itens:</span>
+                    <span className="font-medium">{totalItemsCount} un.</span>
+                  </div>
+                  <div className="flex space-x-8 text-xl font-bold text-gray-900 pt-2 border-t border-gray-100 w-full sm:w-auto mt-2 justify-end">
+                    <span className="mr-8">Valor Estimado:</span>
+                    <span className="text-indigo-600">R$ {totalStockValue.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t flex justify-end shrink-0">
+              <Button onClick={() => setIsReportOpen(false)}>Fechar</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @media print {
+          body * { visibility: hidden; }
+          .print-area, .print-area * { visibility: visible; }
+          .print-area { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            padding: 20px;
+          }
+          .fixed, .bg-opacity-50, button:not(.printer-btn) { display: none !important; }
+        }
+      `}} />
     </div>
   );
 };
