@@ -181,7 +181,7 @@ const SuperAdminPage: React.FC = () => {
     const handlePurgeCompany = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedCompany) return;
-        if (purgeConfirmationName !== selectedCompany.name) {
+        if (purgeConfirmationName.trim().toLowerCase() !== selectedCompany.name.trim().toLowerCase()) {
             alert('O nome da empresa digitado não coincide.');
             return;
         }
@@ -722,6 +722,7 @@ const SuperAdminPage: React.FC = () => {
                                     Digite <span className="text-red-600 font-extrabold">{selectedCompany.name}</span> para confirmar:
                                 </label>
                                 <Input
+                                    id="purge-confirmation"
                                     value={purgeConfirmationName}
                                     onChange={(e) => setPurgeConfirmationName(e.target.value)}
                                     placeholder="Nome da empresa..."
@@ -734,7 +735,7 @@ const SuperAdminPage: React.FC = () => {
                                     type="submit"
                                     variant="danger"
                                     className="w-full h-12"
-                                    disabled={isPurging || purgeConfirmationName !== selectedCompany.name}
+                                    disabled={isPurging || purgeConfirmationName.trim().toLowerCase() !== selectedCompany.name.trim().toLowerCase()}
                                 >
                                     {isPurging ? 'Expurgando...' : 'SIM, EXCLUIR TUDO DEFINITIVAMENTE'}
                                 </Button>
