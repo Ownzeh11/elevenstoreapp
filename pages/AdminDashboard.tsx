@@ -64,7 +64,9 @@ const AdminDashboard: React.FC = () => {
             // Real revenue calculation
             const revenue = companies?.reduce((acc, c: any) => {
                 if (c.status !== 'active') return acc;
-                const planPrice = c.saas_plans?.price || 0;
+                // Handle both object and array formats from PostgREST join
+                const planData = Array.isArray(c.saas_plans) ? c.saas_plans[0] : c.saas_plans;
+                const planPrice = planData?.price || 0;
                 return acc + Number(planPrice);
             }, 0) || 0;
 
@@ -189,7 +191,7 @@ const AdminDashboard: React.FC = () => {
                             recentLogs.map((log) => (
                                 <div key={log.id} className="flex items-center p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-100 transition-colors">
                                     <div className={`w-2 h-10 rounded-full mr-4 ${log.action.includes('delete') ? 'bg-red-500' :
-                                            log.action.includes('suspend') ? 'bg-amber-500' : 'bg-indigo-500'
+                                        log.action.includes('suspend') ? 'bg-amber-500' : 'bg-indigo-500'
                                         }`}></div>
                                     <div className="flex-1">
                                         <p className="text-sm font-bold text-gray-800">{log.action}</p>

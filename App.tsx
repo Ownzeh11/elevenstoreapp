@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import DashboardPage from './pages/DashboardPage';
@@ -237,7 +237,7 @@ const AppContent: React.FC = () => {
             <Routes>
               {/* Redirect Super Admin from root to admin dashboard */}
               {isSuperAdmin && location.pathname === '/' && (
-                <Route path="/" element={<div className="p-8"><p className="animate-pulse">Redirecionando para o Console de Administração...</p>{React.useEffect(() => { navigate('/admin'); }, [])}</div>} />
+                <Route path="/" element={<Navigate to="/admin" replace />} />
               )}
 
               {/* Company Level Routes (Hidden from Super Admin) */}
