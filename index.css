@@ -7,74 +7,75 @@
 
 @media print {
 
-  /* 1. RESET PAGE GEOMETRY */
-  /* This is critical: if body/html/root are 100vh or overflow-hidden, print clips to 1 page */
+  /* 1. HIDE MAIN APP */
+  /* Since we are using a Portal, the app stays in #root, and the modal goes to body */
+  #root {
+    display: none !important;
+  }
+
+  /* 2. RESET BODY */
   html,
-  body,
-  #root,
-  main,
-  .overflow-hidden {
-    background-color: white !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: auto !important;
-    overflow: visible !important;
-    position: static !important;
+  body {
+    background: white;
+    height: auto;
+    width: 100%;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 3. SHOW PORTAL CONTENT */
+  /* The div we portal into body will have this class or we target the content */
+  .print-portal {
     display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* 2. HIDE EVERYTHING */
-  body * {
-    visibility: hidden;
-  }
-
-  /* 3. SHOW PRINT CONTAINER & CHILDREN */
-  /* We use visibility because display:none destroys layout state (React context/scroll) */
-  .print-container,
-  .print-container * {
-    visibility: visible !important;
-  }
-
-  /* 4. POSITION THE PRINT MODAL */
-  /* Move it out of the potentially deeply nested tree to the top left */
-  .print-container {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
-    min-width: 100% !important;
     height: auto !important;
-
-    /* Decoration resets */
+    z-index: 9999 !important;
     background: white !important;
-    color: black !important;
-    box-shadow: none !important;
-    border: none !important;
-    z-index: 99999 !important;
+    visibility: visible !important;
+  }
 
-    /* Ensure it behaves like a normal block flow */
+  /* 4. CLEANUP INTERNALS */
+  .print-portal * {
+    visibility: visible !important;
+  }
+
+  /* Reset modal overlay styles (remove fixed pos, bg color) so it prints as a doc */
+  .print-overlay {
+    position: static !important;
+    background: none !important;
+    padding: 0 !important;
     display: block !important;
+    width: 100% !important;
+    height: auto !important;
   }
 
-  /* 5. RESET INNER CONSTRAINTS */
-  /* The modal likely has max-w-4xl, etc. Remove that for print full width */
-  .print-container>div {
-    max-width: none !important;
-    width: 100% !important;
-    margin: 0 !important;
+  /* Reset card styles */
+  .print-card {
     box-shadow: none !important;
     border: none !important;
-    flex: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
   }
 
-  /* 6. HIDE NON-PRINT ELEMENTS explicitly if they overlap (modals, fixed headers) */
-  /* Sometimes previous visibility:hidden isn't enough for fixed elements */
-  nav,
-  header,
-  aside,
-  .sidebar {
+  /* Hide UI elements inside the report */
+  .print\:hidden {
     display: none !important;
+  }
+
+  /* Ensure grid works or falls back to block */
+  .print\:border {
+    border: 1px solid #ddd !important;
+  }
+
+  .print\:block {
+    display: block !important;
   }
 }

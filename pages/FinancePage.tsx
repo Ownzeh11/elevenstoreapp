@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -668,12 +669,17 @@ const FinancePage: React.FC = () => {
           </div>
         )
       }
+// Add import at the top
+      import {createPortal} from 'react-dom';
+
+      // ... (inside component)
+
       {/* Modal de Relatório */}
       {
-        isReportOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4 print-container">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="flex justify-between items-center p-6 border-b shrink-0">
+        isReportOpen && createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4 print-portal print-overlay">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col print-card">
+              <div className="flex justify-between items-center p-6 border-b shrink-0 print:hidden">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Relatório Financeiro</h3>
                   <p className="text-sm text-gray-500">Posição em {new Date().toLocaleDateString('pt-BR')}</p>
@@ -750,14 +756,14 @@ const FinancePage: React.FC = () => {
                           <td className="py-4 text-gray-700">{formatDate(t.due_date || t.created_at)}</td>
                           <td className="py-4">
                             <p className={`font-medium ${t.reference_type === 'reversal' ? 'text-yellow-600' :
-                                t.type === 'income' ? 'text-green-700' : 'text-red-700'
+                              t.type === 'income' ? 'text-green-700' : 'text-red-700'
                               }`}>
                               {t.description}
                             </p>
                           </td>
                           <td className="py-4 text-gray-700">{t.category || '-'}</td>
                           <td className={`py-4 text-right font-semibold ${t.reference_type === 'reversal' ? 'text-yellow-600' :
-                              t.type === 'income' ? 'text-green-600' : 'text-red-600'
+                            t.type === 'income' ? 'text-green-600' : 'text-red-600'
                             }`}>
                             {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
                           </td>
@@ -775,66 +781,10 @@ const FinancePage: React.FC = () => {
                 <Button onClick={() => setIsReportOpen(false)}>Fechar</Button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )
       }
-
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @media print {
-          aside, header, footer, button, .print\\:hidden {
-            display: none !important;
-          }
-
-          .md\\:ml-64, main, #root {
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: visible !important;
-          }
-
-          .p-4.md\\:p-8 > *:not(.print-container), 
-          .grid, 
-          .shadow-2xl:not(.print-container),
-          .max-w-7xl > *:not(.print-container) {
-            display: none !important;
-          }
-
-          .print-area {
-            position: relative !important;
-            display: block !important;
-            width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            visibility: visible !important;
-          }
-
-          .fixed {
-            position: relative !important;
-            display: block !important;
-            background: white !important;
-            z-index: auto !important;
-          }
-
-          .bg-black, .bg-opacity-50 {
-            display: none !important;
-          }
-
-          #finance-report-print, 
-          #finance-report-print * {
-            visibility: visible !important;
-          }
-          
-          table {
-            width: 100% !important;
-            border-spacing: 0 !important;
-            border-collapse: collapse !important;
-          }
-          
-          th, td {
-            border-bottom: 1px solid #eee !important;
-          }
-        }
-      `}} />
     </div >
   );
 };
