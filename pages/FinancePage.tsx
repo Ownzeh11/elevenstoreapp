@@ -295,25 +295,26 @@ const FinancePage: React.FC = () => {
   });
 
   // Calculate totals for the report based on FILTERED transactions
+
+  // 1. Gross Income (Receitas confirmadas, sem descontar estornos aqui)
   const reportIncome = filteredTransactions
     .filter(t => t.type === 'income' && t.reference_type !== 'reversal')
-    .reduce((acc, t) => acc + Number(t.amount), 0)
-    - filteredTransactions
-      .filter(t => t.type === 'expense' && t.reference_type === 'reversal')
-      .reduce((acc, t) => acc + Number(t.amount), 0);
+    .reduce((acc, t) => acc + Number(t.amount), 0);
 
+  // 2. Reversals (Estornos de receitas, que são despesas com ref=reversal)
+  // Note: Usually reversals are 'expense' type if reversing an 'income'. 
+  // We sum them as positive numbers here to display "R$ 50,00" in the red field.
+  const reportReversals = filteredTransactions
+    .filter(t => t.type === 'expense' && t.reference_type === 'reversal')
+    .reduce((acc, t) => acc + Number(t.amount), 0);
+
+  // 3. Gross Expenses (Despesas normais, excluindo estornos de entrada se houver algo raro)
   const reportExpense = filteredTransactions
     .filter(t => t.type === 'expense' && t.reference_type !== 'reversal')
-    .reduce((acc, t) => acc + Number(t.amount), 0)
-    - filteredTransactions
-      .filter(t => t.type === 'income' && t.reference_type === 'reversal')
-      .reduce((acc, t) => acc + Number(t.amount), 0);
+    .reduce((acc, t) => acc + Number(t.amount), 0);
 
-  // Note: For the report balance, we might want just (Income - Expense) of the LISTED transactions.
-  // Global cash balance is usually "all time", but if the user filters by date, they likely want the balance variation in that period
-  // OR the system's actual balance. The request says "valores calculados para o resultado do filtro".
-  // So we will show the "Saldo do Período" (Balance of the Period) instead of total cash balance.
-  const reportBalance = reportIncome - reportExpense;
+  // 4. Balance: Income - Expenses - Reversals
+  const reportBalance = reportIncome - reportExpense - reportReversals;
 
   // Use ONLY categories from DB for filters and suggestions
   const allCategoryNames = dbCategories.map(c => c.name).sort();
@@ -708,16 +709,24 @@ const FinancePage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-8 print:border print:p-4 print:rounded-lg">
-                  <div className="space-y-1">
+                  <div>
                     <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Receitas (Filtradas)</p>
                     <p className="text-2xl font-bold text-green-600">{formatCurrency(reportIncome)}</p>
                   </div>
-                  <div className="space-y-1">
+                  <div>
                     <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Despesas (Filtradas)</p>
                     <p className="text-2xl font-bold text-red-600">{formatCurrency(reportExpense)}</p>
                   </div>
-                  <div className="col-span-2 pt-4 border-t border-gray-100">
-                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo do Período/Filtro</p>
+
+                  {/* Reversals Section */}
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Estornos</p>
+                    <p className="text-2xl font-bold text-yellow-600">{formatCurrency(reportReversals)}</p>
+                  </div>
+
+                  {/* Balance Section */}
+                  <div className="pt-0">
+                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo do Período</p>
                     <p className={`text-3xl font-bold ${reportBalance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
                       {formatCurrency(reportBalance)}
                     </p>
@@ -735,17 +744,21 @@ const FinancePage: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50 print:divide-gray-200">
                     {filteredTransactions
-                      .filter(t => t.reference_type !== 'reversal')
+                      // Show all transactions including reversals
                       .map((t) => (
                         <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
                           <td className="py-4 text-gray-700">{formatDate(t.due_date || t.created_at)}</td>
                           <td className="py-4">
-                            <p className={`font-medium ${t.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>
+                            <p className={`font-medium ${t.reference_type === 'reversal' ? 'text-yellow-600' :
+                                t.type === 'income' ? 'text-green-700' : 'text-red-700'
+                              }`}>
                               {t.description}
                             </p>
                           </td>
                           <td className="py-4 text-gray-700">{t.category || '-'}</td>
-                          <td className={`py-4 text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                          <td className={`py-4 text-right font-semibold ${t.reference_type === 'reversal' ? 'text-yellow-600' :
+                              t.type === 'income' ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
                           </td>
                         </tr>
