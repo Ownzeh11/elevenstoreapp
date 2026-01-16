@@ -2,48 +2,74 @@
 
 @media print {
 
-  /* Visualize ONLY the print container */
+  /* 1. RESET PAGE GEOMETRY */
+  /* This is critical: if body/html/root are 100vh or overflow-hidden, print clips to 1 page */
+  html,
+  body,
+  #root,
+  main,
+  .overflow-hidden {
+    background-color: white !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 2. HIDE EVERYTHING */
   body * {
     visibility: hidden;
   }
 
-  /* Make the print container and its children visible */
+  /* 3. SHOW PRINT CONTAINER & CHILDREN */
+  /* We use visibility because display:none destroys layout state (React context/scroll) */
   .print-container,
   .print-container * {
-    visibility: visible;
+    visibility: visible !important;
   }
 
-  /* Position the print container at the top-left of the page */
+  /* 4. POSITION THE PRINT MODAL */
+  /* Move it out of the potentially deeply nested tree to the top left */
   .print-container {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
+    min-width: 100% !important;
     height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
 
-    /* Override the modal overlay background (bg-black) to white for printing */
+    /* Decoration resets */
     background: white !important;
-    z-index: 9999 !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+    z-index: 99999 !important;
 
-    /* Ensure no flex centering screws up the print flow, let it be block */
+    /* Ensure it behaves like a normal block flow */
     display: block !important;
   }
 
-  /* Reset the inner modal card to take full width/height if needed, or just remove shadows/borders */
+  /* 5. RESET INNER CONSTRAINTS */
+  /* The modal likely has max-w-4xl, etc. Remove that for print full width */
   .print-container>div {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
-    width: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
-    overflow: visible !important;
-    border-radius: 0 !important;
+    flex: none !important;
   }
 
-  /* Hide the scrollbars */
-  ::-webkit-scrollbar {
-    display: none;
+  /* 6. HIDE NON-PRINT ELEMENTS explicitly if they overlap (modals, fixed headers) */
+  /* Sometimes previous visibility:hidden isn't enough for fixed elements */
+  nav,
+  header,
+  aside,
+  .sidebar {
+    display: none !important;
   }
 }
