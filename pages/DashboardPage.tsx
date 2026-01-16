@@ -134,18 +134,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
       }) || [];
 
       // Net Sales = Today's Item Income - Today's Item Reversals
+      // Using 'origin' because 'category' is now 'Vendas' for all sales
       const salesToday = todayTxs
-        .filter(t => t.category !== 'service' && t.type === 'income' && t.reference_type !== 'reversal')
+        .filter(t => t.origin === 'product_sale' && t.type === 'income' && t.reference_type !== 'reversal')
         .reduce((acc, t) => acc + Number(t.amount), 0) -
         todayTxs
-          .filter(t => t.category !== 'service' && t.type === 'expense' && t.reference_type === 'reversal')
+          .filter(t => t.origin === 'product_sale' && t.type === 'expense' && t.reference_type === 'reversal')
           .reduce((acc, t) => acc + Number(t.amount), 0);
 
       const servicesToday = todayTxs
-        .filter(t => t.category === 'service' && t.type === 'income' && t.reference_type !== 'reversal')
+        .filter(t => t.origin === 'service_sale' && t.type === 'income' && t.reference_type !== 'reversal')
         .reduce((acc, t) => acc + Number(t.amount), 0) -
         todayTxs
-          .filter(t => t.category === 'service' && t.type === 'expense' && t.reference_type === 'reversal')
+          .filter(t => t.origin === 'service_sale' && t.type === 'expense' && t.reference_type === 'reversal')
           .reduce((acc, t) => acc + Number(t.amount), 0);
 
       // Expenses Today = Everything that is NOT a reversal (from either side)

@@ -9,7 +9,7 @@ export const createTransaction = async (data: {
     reference_id?: string;
     reference_type?: 'sale' | 'reversal' | 'initial' | 'manual';
     origin?: 'product_sale' | 'service_sale' | 'manual';
-    category?: 'product' | 'service' | 'other';
+    category?: string;
     status?: 'paid' | 'pending';
     due_date?: string;
 }) => {
@@ -69,4 +69,3 @@ export const fetchTotalBalance = async (companyId: string) => {
 
     return income - expense;
 };
-

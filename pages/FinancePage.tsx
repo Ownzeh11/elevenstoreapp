@@ -284,7 +284,7 @@ const FinancePage: React.FC = () => {
   const allCategoryNames = Array.from(new Set([
     ...transactions.map(t => t.category),
     ...dbCategories.map(c => c.name),
-    'Aluguel', 'Salário', 'Marketing', 'Fornecedores', 'Infraestrutura', 'Impostos', 'Manutenção', 'Venda', 'Serviço'
+    'Aluguel', 'Salário', 'Marketing', 'Fornecedores', 'Infraestrutura', 'Impostos', 'Manutenção', 'Vendas'
   ].filter(Boolean))) as string[];
 
 
