@@ -275,12 +275,14 @@ const FinancePage: React.FC = () => {
     return false;
   });
 
-  // Keep datalist options but also add DB categories
-  const allCategoryNames = Array.from(new Set([
-    ...transactions.map(t => t.category),
-    ...dbCategories.map(c => c.name),
-    'Aluguel', 'Salário', 'Marketing', 'Fornecedores', 'Infraestrutura', 'Impostos', 'Manutenção', 'Vendas'
-  ].filter(Boolean))) as string[];
+  // Use ONLY categories from DB for filters and suggestions
+  const allCategoryNames = dbCategories.map(c => c.name).sort();
+
+  // Filter categories by type for the new transaction modal
+  const modalCategories = dbCategories
+    .filter(c => c.type === 'both' || c.type === formData.type)
+    .map(c => c.name)
+    .sort();
 
 
   const formatCurrency = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
@@ -533,7 +535,7 @@ const FinancePage: React.FC = () => {
                   placeholder="Ex: Aluguel, Salário, Marketing..."
                 />
                 <datalist id="categories-list">
-                  {allCategoryNames.map(cat => (
+                  {modalCategories.map(cat => (
                     <option key={cat} value={cat} />
                   ))}
                 </datalist>
