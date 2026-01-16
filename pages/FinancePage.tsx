@@ -12,8 +12,10 @@ import { supabase } from '../utils/supabaseClient';
 import { createTransaction, createReversal } from '../utils/finance';
 
 const FinancePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'cashflow' | 'receivables'>('cashflow');
+  const [activeTab, setActiveTab] = useState<'cashflow' | 'receivables' | 'categories'>('cashflow');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,7 +46,9 @@ const FinancePage: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.state && (location.state as any).openModal) {
+    if (location.pathname === '/finance/categories') {
+      setActiveTab('categories');
+    } else if (location.state && (location.state as any).openModal) {
       handleOpenModal();
       if ((location.state as any).type) {
         setFormData(prev => ({ ...prev, type: (location.state as any).type }));
@@ -112,16 +116,34 @@ const FinancePage: React.FC = () => {
           const income = rawIncome - reversalExpenses;
           const expense = rawExpense - reversalIncomes;
 
-          const pending = typedData
-            .filter(t => t.type === 'income' && t.status === 'pending')
+          const rawPending = typedData
+            .filter(t => t.type === 'income' && t.status === 'pending' && t.reference_type !== 'reversal')
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+          const reversalPending = typedData
+            .filter(t => t.type === 'expense' && t.status === 'pending' && t.reference_type === 'reversal')
+            .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+          const pending = rawPending - reversalPending;
 
           setTotalIncome(income);
           setTotalExpense(expense);
           setCashBalance(income - expense);
           setPendingReceivables(pending);
         }
+
+        // Fetch categories
+        const { data: categoryData } = await supabase
+          .from('transaction_categories')
+          .select('*')
+          .eq('company_id', currentCompanyId)
+          .order('name');
+
+        if (categoryData) {
+          setCategories(categoryData);
+        }
       }
+
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -247,12 +269,23 @@ const FinancePage: React.FC = () => {
 
     if (activeTab === 'cashflow') {
       return matchesSearch && matchesCategory && (t.status === 'paid' || !t.status);
-    } else {
-      return matchesSearch && matchesCategory && t.status === 'pending' && t.type === 'income';
+    } else if (activeTab === 'receivables') {
+      // For receivables, show pending income that hasn't been reversed
+      const isReversed = transactions.some(rev =>
+        rev.reference_id === t.id &&
+        rev.reference_type === 'reversal'
+      );
+      return matchesSearch && matchesCategory && t.status === 'pending' && t.type === 'income' && !isReversed && t.reference_type !== 'reversal';
     }
+    return false;
   });
 
-  const categories = Array.from(new Set(transactions.map(t => t.category).filter(Boolean))) as string[];
+  // Keep datalist options but also add DB categories
+  const allCategoryNames = Array.from(new Set([
+    ...transactions.map(t => t.category),
+    ...categories.map(c => c.name),
+    'Aluguel', 'Salário', 'Marketing', 'Fornecedores', 'Infraestrutura', 'Impostos', 'Manutenção', 'Venda', 'Serviço'
+  ].filter(Boolean))) as string[];
 
 
   const formatCurrency = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
@@ -286,21 +319,26 @@ const FinancePage: React.FC = () => {
               title="Receber"
             />
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={Edit}
-            onClick={() => handleEdit(t)}
-            className="text-blue-600 hover:text-blue-800"
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={Trash2}
-            onClick={() => handleDelete(t.id)}
-            className="text-red-600 hover:text-red-800"
-          />
+          {t.reference_type !== 'reversal' && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={Edit}
+                onClick={() => handleEdit(t)}
+                className="text-blue-600 hover:text-blue-800"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={Trash2}
+                onClick={() => handleDelete(t.id)}
+                className="text-red-600 hover:text-red-800"
+              />
+            </>
+          )}
         </div>
+
       ),
     },
   ];
@@ -372,57 +410,72 @@ const FinancePage: React.FC = () => {
             >
               Contas a Receber
             </button>
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`px-6 py-2 text-sm font-medium transition-all border-b-2 ${activeTab === 'categories'
+                ? 'border-indigo-600 text-indigo-600 bg-white rounded-t-lg'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              Categorias
+            </button>
           </div>
         </div>
 
         <div className="p-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              {activeTab === 'cashflow' ? 'Movimentações Realizadas' : 'Futuros Recebimentos'}
-            </h2>
-            <div className="flex w-full sm:w-auto gap-3">
-              <select
-                className="w-full sm:w-48 px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
-                <option value="">Todas Categorias</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <Input
-                id="search"
-                type="search"
-                placeholder="Buscar descrição..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-xs"
-              />
-              <Button
-                variant="secondary"
-                icon={FileText}
-                onClick={() => setIsReportOpen(true)}
-              >
-                Relatório
-              </Button>
-              <Button variant="primary" icon={Plus} onClick={handleOpenModal}>
-                Nova Transação
-              </Button>
-
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>
-          ) : filteredTransactions.length === 0 ? (
-            <div className="p-20 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-              Nenhuma transação encontrada nesta categoria.
-            </div>
+          {activeTab === 'categories' ? (
+            <CategoryManager companyId={companyId!} onUpdate={fetchData} />
           ) : (
-            <Table data={filteredTransactions} columns={columns} rowKey="id" />
+            <>
+              <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {activeTab === 'cashflow' ? 'Movimentações Realizadas' : 'Futuros Recebimentos'}
+                </h2>
+                <div className="flex w-full sm:w-auto gap-3">
+                  <select
+                    className="w-full sm:w-48 px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                  >
+                    <option value="">Todas Categorias</option>
+                    {allCategoryNames.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <Input
+                    id="search"
+                    type="search"
+                    placeholder="Buscar descrição..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-xs"
+                  />
+                  <Button
+                    variant="secondary"
+                    icon={FileText}
+                    onClick={() => setIsReportOpen(true)}
+                  >
+                    Relatório
+                  </Button>
+                  <Button variant="primary" icon={Plus} onClick={handleOpenModal}>
+                    Nova Transação
+                  </Button>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>
+              ) : filteredTransactions.length === 0 ? (
+                <div className="p-20 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  Nenhuma transação encontrada nesta categoria.
+                </div>
+              ) : (
+                <Table data={filteredTransactions} columns={columns} rowKey="id" />
+              )}
+            </>
           )}
         </div>
+
       </Card>
 
       {/* Modal */}
@@ -485,16 +538,11 @@ const FinancePage: React.FC = () => {
                   placeholder="Ex: Aluguel, Salário, Marketing..."
                 />
                 <datalist id="categories-list">
-                  <option value="Aluguel" />
-                  <option value="Salário" />
-                  <option value="Marketing" />
-                  <option value="Fornecedores" />
-                  <option value="Infraestrutura" />
-                  <option value="Impostos" />
-                  <option value="Manutenção" />
-                  <option value="Venda" />
-                  <option value="Serviço" />
+                  {allCategoryNames.map(cat => (
+                    <option key={cat} value={cat} />
+                  ))}
                 </datalist>
+
               </div>
 
 
@@ -691,5 +739,123 @@ const FinancePage: React.FC = () => {
   );
 };
 
+
+const CategoryManager: React.FC<{ companyId: string, onUpdate: () => void }> = ({ companyId, onUpdate }) => {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState<'income' | 'expense' | 'both'>('both');
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const { data } = await supabase
+        .from('transaction_categories')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('name');
+      setCategories(data || []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, [companyId]);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('transaction_categories')
+        .insert([{ company_id: companyId, name: newName.trim(), type: newType }]);
+
+      if (error) throw error;
+      setNewName('');
+      fetchCategories();
+      onUpdate();
+    } catch (error: any) {
+      alert('Erro ao adicionar categoria: ' + error.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza? Isso não apagará as transações já existentes com esta categoria.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('transaction_categories')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchCategories();
+      onUpdate();
+    } catch (error: any) {
+      alert('Erro ao excluir: ' + error.message);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-gray-50 border-gray-200">
+        <form onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex-1 space-y-1">
+            <label className="block text-sm font-semibold text-gray-700">Nome da Categoria</label>
+            <Input
+              id="cat-name"
+              placeholder="Ex: Aluguel, Internet..."
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+            />
+          </div>
+          <div className="w-full md:w-48 space-y-1">
+            <label className="block text-sm font-semibold text-gray-700">Tipo</label>
+            <select
+              className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+              value={newType}
+              onChange={e => setNewType(e.target.value as any)}
+            >
+              <option value="both">Ambos</option>
+              <option value="income">Receita</option>
+              <option value="expense">Despesa</option>
+            </select>
+          </div>
+          <Button type="submit" variant="primary" icon={Plus}>Adicionar</Button>
+        </form>
+      </Card>
+
+      {loading ? (
+        <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600" /></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {categories.map(cat => (
+            <Card key={cat.id} className="flex justify-between items-center p-4 hover:shadow-md transition-shadow">
+              <div>
+                <p className="font-bold text-gray-900">{cat.name}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-widest">
+                  {cat.type === 'both' ? 'Receita & Despesa' : cat.type === 'income' ? 'Receita' : 'Despesa'}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={Trash2}
+                onClick={() => handleDelete(cat.id)}
+                className="text-gray-400 hover:text-red-600"
+              />
+            </Card>
+          ))}
+          {categories.length === 0 && (
+            <p className="col-span-full text-center py-12 text-gray-500 italic">Nenhuma categoria personalizada cadastrada.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default FinancePage;

@@ -510,18 +510,28 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       setLoading(true);
       try {
         // 1. Fetch transactions linked to this sale to create reversals
+        // This includes installments (reference_type='sale' and reference_id=sale.id)
         const { data: relatedTxs, error: fetchTxError } = await supabase
           .from('transactions')
           .select('*')
-          .eq('reference_id', sale.id)
-          .eq('reference_type', 'sale');
+          .eq('reference_id', sale.id);
 
         if (fetchTxError) throw fetchTxError;
 
         // 2. Create reversals for each related transaction
         if (relatedTxs && relatedTxs.length > 0) {
           for (const tx of relatedTxs) {
-            await createReversal(tx as Transaction);
+            // Check if a reversal already exists for this transaction to avoid duplicates
+            const { data: existingReversal } = await supabase
+              .from('transactions')
+              .select('id')
+              .eq('reference_id', tx.id)
+              .eq('reference_type', 'reversal')
+              .maybeSingle();
+
+            if (!existingReversal) {
+              await createReversal(tx as Transaction);
+            }
           }
         } else {
           // Fallback if no reference_id found (legacy sales)

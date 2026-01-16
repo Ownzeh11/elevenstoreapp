@@ -90,6 +90,7 @@ export interface NavItem {
   label: string;
   icon: React.ElementType; // Icon component from lucide-react
   module?: string;
+  children?: NavItem[];
 }
 
 export interface SummaryCardData {
@@ -163,4 +164,12 @@ export interface TableColumn<T> {
   render?: (item: T) => React.ReactNode;
   headerClassName?: string;
   cellClassName?: string;
+}
+
+export interface TransactionCategory {
+  id: string;
+  company_id: string;
+  name: string;
+  type: 'income' | 'expense' | 'both';
+  created_at?: string;
 }

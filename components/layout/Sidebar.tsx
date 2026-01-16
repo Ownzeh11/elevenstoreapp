@@ -61,25 +61,51 @@ const Sidebar: React.FC<SidebarProps> = ({ activePath, onNavigate, isOpen, toggl
           {(role === 'SUPER_ADMIN' ? ADMIN_NAV_ITEMS : USER_NAV_ITEMS)
             .filter(item => !item.module || enabledModules.includes(item.module))
             .map((item) => {
-              const isActive = activePath === item.path;
+              const isActive = activePath === item.path || (item.children?.some(child => activePath === child.path));
               const isAdminPath = item.path.startsWith('/admin');
+              const hasChildren = item.children && item.children.length > 0;
 
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => {
-                    onNavigate(item.path);
-                    if (isOpen) toggleSidebar();
-                  }}
-                  className={`flex items-center px-4 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isActive
-                    ? (isAdminPath ? 'bg-indigo-50 text-indigo-700 font-medium' : 'bg-blue-50 text-blue-700 font-medium')
-                    : ''
-                    }`}
-                >
-                  <item.icon className={`h-5 w-5 mr-3 ${isActive ? (isAdminPath ? 'text-indigo-600' : 'text-blue-600') : 'text-gray-400'}`} />
-                  <span>{item.label}</span>
-                </Link>
+                <div key={item.path} className="space-y-1">
+                  <Link
+                    to={item.path}
+                    onClick={() => {
+                      onNavigate(item.path);
+                      if (isOpen && !hasChildren) toggleSidebar();
+                    }}
+                    className={`flex items-center px-4 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isActive
+                      ? (isAdminPath ? 'bg-indigo-50 text-indigo-700 font-medium' : 'bg-blue-50 text-blue-700 font-medium')
+                      : ''
+                      }`}
+                  >
+                    <item.icon className={`h-5 w-5 mr-3 ${isActive ? (isAdminPath ? 'text-indigo-600' : 'text-blue-600') : 'text-gray-400'}`} />
+                    <span className="flex-1">{item.label}</span>
+                    {hasChildren && (
+                      <ChevronRight size={16} className={`transform transition-transform ${isActive ? 'rotate-90 text-indigo-600' : 'text-gray-400'}`} />
+                    )}
+                  </Link>
+
+                  {hasChildren && isActive && (
+                    <div className="ml-9 space-y-1">
+                      {item.children!.map((child) => (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          onClick={() => {
+                            onNavigate(child.path);
+                            if (isOpen) toggleSidebar();
+                          }}
+                          className={`block px-4 py-2 text-sm rounded-md transition-colors ${activePath === child.path
+                              ? 'bg-blue-100 text-blue-700 font-medium'
+                              : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               );
             })}
         </nav>

@@ -21,7 +21,12 @@ export const USER_NAV_ITEMS: NavItem[] = [
   { path: '/products', label: 'Produtos', icon: Package, module: 'inventory' },
   { path: '/services', label: 'Serviços', icon: Wrench, module: 'calendar' },
   { path: '/calendar', label: 'Calendário', icon: CalendarDays, module: 'calendar' },
-  { path: '/finance', label: 'Financeiro', icon: DollarSign, module: 'finance' },
+  {
+    path: '/finance', label: 'Financeiro', icon: DollarSign, module: 'finance', children: [
+      { path: '/finance', label: 'Fluxo de Caixa', icon: DollarSign },
+      { path: '/finance/categories', label: 'Gestão de Categorias', icon: Settings }
+    ]
+  },
   { path: '/sales', label: 'Vendas', icon: ShoppingCart, module: 'sales' },
   { path: '/customers', label: 'Clientes', icon: User, module: 'customers' },
   { path: '/settings', label: 'Configurações', icon: Settings },

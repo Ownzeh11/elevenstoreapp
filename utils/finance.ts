@@ -31,7 +31,9 @@ export const createReversal = async (transaction: Transaction) => {
         reference_id: transaction.id,
         reference_type: 'reversal' as const,
         origin: transaction.origin,
-        category: transaction.category
+        category: transaction.category,
+        status: transaction.status,
+        due_date: transaction.due_date
     };
 
     const { error } = await supabase.from('transactions').insert([reversalData]);

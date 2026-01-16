@@ -261,6 +261,7 @@ const AppContent: React.FC = () => {
                   <Route path="/services" element={isModuleEnabled('/services') ? <ServicesPage onSaleClick={handleLaunchSale} onNewServiceClick={handleNewService} /> : <Navigate to="/" replace />} />
                   <Route path="/calendar" element={isModuleEnabled('/calendar') ? <CalendarPage onNewAppointmentClick={handleNewAppointment} /> : <Navigate to="/" replace />} />
                   <Route path="/finance" element={isModuleEnabled('/finance') ? <FinancePage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} /> : <Navigate to="/" replace />} />
+                  <Route path="/finance/categories" element={isModuleEnabled('/finance') ? <FinancePage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} /> : <Navigate to="/" replace />} />
                   <Route path="/sales" element={isModuleEnabled('/sales') ? <SalesPage onSaleClick={handleLaunchSale} /> : <Navigate to="/" replace />} />
                   <Route path="/customers" element={isModuleEnabled('/customers') ? <CustomersPage /> : <Navigate to="/" replace />} />
                   <Route path="/settings" element={<SettingsPage />} />
