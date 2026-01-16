@@ -647,20 +647,22 @@ const FinancePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 print:divide-gray-200">
-                  {filteredTransactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="py-4 text-gray-700">{formatDate(t.due_date || t.created_at)}</td>
-                      <td className="py-4">
-                        <p className={`font-medium ${t.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>
-                          {t.description}
-                        </p>
-                      </td>
-                      <td className="py-4 text-gray-700">{t.category || '-'}</td>
-                      <td className={`py-4 text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                        {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredTransactions
+                    .filter(t => t.reference_type !== 'reversal')
+                    .map((t) => (
+                      <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-4 text-gray-700">{formatDate(t.due_date || t.created_at)}</td>
+                        <td className="py-4">
+                          <p className={`font-medium ${t.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>
+                            {t.description}
+                          </p>
+                        </td>
+                        <td className="py-4 text-gray-700">{t.category || '-'}</td>
+                        <td className={`py-4 text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                          {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
 
