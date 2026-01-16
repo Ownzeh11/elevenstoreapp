@@ -452,53 +452,78 @@ const FinancePage: React.FC = () => {
             <CategoryManager companyId={companyId!} onUpdate={fetchData} />
           ) : (
             <>
-              <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {activeTab === 'cashflow' ? 'Movimentações Realizadas' : 'Futuros Recebimentos'}
-                </h2>
-                <div className="flex w-full sm:w-auto gap-3">
-                  <select
-                    className="w-full sm:w-48 px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                  >
-                    <option value="">Todas Categorias</option>
-                    {allCategoryNames.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full sm:w-auto"
-                    title="Data Inicial"
-                  />
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full sm:w-auto"
-                    title="Data Final"
-                  />
-                  <Input
-                    id="search"
-                    type="search"
-                    placeholder="Buscar descrição..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-xs"
-                  />
-                  <Button
-                    variant="secondary"
-                    icon={FileText}
-                    onClick={() => setIsReportOpen(true)}
-                  >
-                    Relatório
-                  </Button>
-                  <Button variant="primary" icon={Plus} onClick={handleOpenModal}>
+              <div className="space-y-6 mb-6">
+                {/* Header Row: Title and New Transaction */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {activeTab === 'cashflow' ? 'Movimentações Realizadas' : 'Futuros Recebimentos'}
+                  </h2>
+                  <Button variant="primary" icon={Plus} onClick={handleOpenModal} className="w-full sm:w-auto">
                     Nova Transação
                   </Button>
+                </div>
+
+                {/* Filters Row: Grid Layout */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  {/* Category Filter - 3 cols */}
+                  <div className="md:col-span-3 space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 uppercase">Categoria</label>
+                    <select
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all h-[42px]"
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                    >
+                      <option value="">Todas Categorias</option>
+                      {allCategoryNames.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Date Filters - 4 cols total (2 each) */}
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 uppercase">De</label>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full bg-white h-[42px]"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 uppercase">Até</label>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full bg-white h-[42px]"
+                    />
+                  </div>
+
+                  {/* Search - 3 cols */}
+                  <div className="md:col-span-3 space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 uppercase">Buscar</label>
+                    <Input
+                      id="search"
+                      type="search"
+                      placeholder="Buscar descrição..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full bg-white h-[42px]"
+                    />
+                  </div>
+
+                  {/* Actions - 2 cols */}
+                  <div className="md:col-span-2">
+                    <Button
+                      variant="secondary"
+                      icon={FileText}
+                      onClick={() => setIsReportOpen(true)}
+                      className="w-full h-[42px] justify-center bg-white border-gray-200 hover:bg-gray-50"
+                    >
+                      Relatório
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -515,210 +540,214 @@ const FinancePage: React.FC = () => {
           )}
         </div>
 
-      </Card>
+      </Card >
 
       {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center p-6 border-b">
-              <h3 className="text-xl font-bold text-gray-900">
-                {editingId ? 'Editar Transação' : 'Nova Transação'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              <Input
-                id="description"
-                label="Descrição"
-                name="description"
-                required
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Ex: Aluguel, Venda de Produto..."
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  id="amount"
-                  label="Valor (R$)"
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                />
-
-                <div className="space-y-1">
-                  <label className="block text-sm font-semibold text-gray-700">Tipo</label>
-                  <select
-                    name="type"
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                  >
-                    <option value="income">Receita (Entrada)</option>
-                    <option value="expense">Despesa (Saída)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-sm font-semibold text-gray-700">Categoria</label>
-                <input
-                  list="categories-list"
-                  name="category"
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  placeholder="Ex: Aluguel, Salário, Marketing..."
-                />
-                <datalist id="categories-list">
-                  {modalCategories.map(cat => (
-                    <option key={cat} value={cat} />
-                  ))}
-                </datalist>
-
-              </div>
-
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="block text-sm font-semibold text-gray-700">Status</label>
-                  <select
-                    name="status"
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                  >
-                    <option value="paid">Confirmado / Pago</option>
-                    <option value="pending">Pendente (Agendado)</option>
-                  </select>
-                </div>
-
-                <Input
-                  id="due_date"
-                  label="Data / Vencimento"
-                  name="due_date"
-                  type="date"
-                  required
-                  value={formData.due_date}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <Button variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" variant="primary" className="flex-1" disabled={submitLoading}>
-                  {submitLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Salvar
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* Modal de Relatório */}
-      {isReportOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4 print-container">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-6 border-b shrink-0">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">Relatório Financeiro</h3>
-                <p className="text-sm text-gray-500">Posição em {new Date().toLocaleDateString('pt-BR')}</p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  variant="secondary"
-                  icon={Printer}
-                  onClick={() => window.print()}
-                  className="hidden sm:flex"
-                >
-                  Imprimir
-                </Button>
-                <button onClick={() => setIsReportOpen(false)} className="text-gray-400 hover:text-gray-600 print:hidden">
-                  <X className="h-6 w-6" />
+      {
+        isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="flex justify-between items-center p-6 border-b">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {editingId ? 'Editar Transação' : 'Nova Transação'}
+                </h3>
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <X size={24} />
                 </button>
               </div>
-            </div>
+              <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                <Input
+                  id="description"
+                  label="Descrição"
+                  name="description"
+                  required
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Ex: Aluguel, Venda de Produto..."
+                />
 
-            <div className="p-6 overflow-y-auto flex-grow print-area" id="finance-report-print">
-              {/* Cabeçalho exclusivo para impressão */}
-              <div className="hidden print:block mb-8">
-                <div className="flex justify-between items-end border-b-2 border-gray-900 pb-4">
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-900 uppercase tracking-tight">Fluxo de Caixa</h1>
-                    <p className="text-gray-600 mt-1">Movimentações financeiras da empresa</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    id="amount"
+                    label="Valor (R$)"
+                    name="amount"
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.amount}
+                    onChange={handleInputChange}
+                  />
+
+                  <div className="space-y-1">
+                    <label className="block text-sm font-semibold text-gray-700">Tipo</label>
+                    <select
+                      name="type"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+                      value={formData.type}
+                      onChange={handleInputChange}
+                    >
+                      <option value="income">Receita (Entrada)</option>
+                      <option value="expense">Despesa (Saída)</option>
+                    </select>
                   </div>
-                  <div className="text-right text-sm text-gray-500">
-                    <p>Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
-                    <p>Hora: {new Date().toLocaleTimeString('pt-BR')}</p>
-                  </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-8 print:border print:p-4 print:rounded-lg">
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Receitas (Filtradas)</p>
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(reportIncome)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Despesas (Filtradas)</p>
-                  <p className="text-2xl font-bold text-red-600">{formatCurrency(reportExpense)}</p>
-                </div>
-                <div className="col-span-2 pt-4 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo do Período/Filtro</p>
-                  <p className={`text-3xl font-bold ${reportBalance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-                    {formatCurrency(reportBalance)}
-                  </p>
-                </div>
-              </div>
-
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-gray-100 print:border-gray-900">
-                    <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Data</th>
-                    <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Descrição</th>
-                    <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Categoria</th>
-                    <th className="py-3 font-semibold text-gray-700 text-right print:text-gray-900">Valor</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 print:divide-gray-200">
-                  {filteredTransactions
-                    .filter(t => t.reference_type !== 'reversal')
-                    .map((t) => (
-                      <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="py-4 text-gray-700">{formatDate(t.due_date || t.created_at)}</td>
-                        <td className="py-4">
-                          <p className={`font-medium ${t.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>
-                            {t.description}
-                          </p>
-                        </td>
-                        <td className="py-4 text-gray-700">{t.category || '-'}</td>
-                        <td className={`py-4 text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                          {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
-                        </td>
-                      </tr>
+                  <label className="block text-sm font-semibold text-gray-700">Categoria</label>
+                  <input
+                    list="categories-list"
+                    name="category"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    placeholder="Ex: Aluguel, Salário, Marketing..."
+                  />
+                  <datalist id="categories-list">
+                    {modalCategories.map(cat => (
+                      <option key={cat} value={cat} />
                     ))}
-                </tbody>
-              </table>
+                  </datalist>
 
-              <div className="hidden print:block mt-16 text-center text-xs text-gray-400 border-t pt-8">
-                <p>Este relatório é para uso interno e reflete a posição do caixa no momento da geração.</p>
-              </div>
-            </div>
+                </div>
 
-            <div className="p-4 bg-gray-50 border-t flex justify-end shrink-0 print:hidden">
-              <Button onClick={() => setIsReportOpen(false)}>Fechar</Button>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block text-sm font-semibold text-gray-700">Status</label>
+                    <select
+                      name="status"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+                      value={formData.status}
+                      onChange={handleInputChange}
+                    >
+                      <option value="paid">Confirmado / Pago</option>
+                      <option value="pending">Pendente (Agendado)</option>
+                    </select>
+                  </div>
+
+                  <Input
+                    id="due_date"
+                    label="Data / Vencimento"
+                    name="due_date"
+                    type="date"
+                    required
+                    value={formData.due_date}
+                    onChange={handleInputChange}
+                  />
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <Button variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" variant="primary" className="flex-1" disabled={submitLoading}>
+                    {submitLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Salvar
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+      {/* Modal de Relatório */}
+      {
+        isReportOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4 print-container">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex justify-between items-center p-6 border-b shrink-0">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Relatório Financeiro</h3>
+                  <p className="text-sm text-gray-500">Posição em {new Date().toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Button
+                    variant="secondary"
+                    icon={Printer}
+                    onClick={() => window.print()}
+                    className="hidden sm:flex"
+                  >
+                    Imprimir
+                  </Button>
+                  <button onClick={() => setIsReportOpen(false)} className="text-gray-400 hover:text-gray-600 print:hidden">
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-grow print-area" id="finance-report-print">
+                {/* Cabeçalho exclusivo para impressão */}
+                <div className="hidden print:block mb-8">
+                  <div className="flex justify-between items-end border-b-2 border-gray-900 pb-4">
+                    <div>
+                      <h1 className="text-3xl font-bold text-gray-900 uppercase tracking-tight">Fluxo de Caixa</h1>
+                      <p className="text-gray-600 mt-1">Movimentações financeiras da empresa</p>
+                    </div>
+                    <div className="text-right text-sm text-gray-500">
+                      <p>Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
+                      <p>Hora: {new Date().toLocaleTimeString('pt-BR')}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-8 print:border print:p-4 print:rounded-lg">
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Receitas (Filtradas)</p>
+                    <p className="text-2xl font-bold text-green-600">{formatCurrency(reportIncome)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Despesas (Filtradas)</p>
+                    <p className="text-2xl font-bold text-red-600">{formatCurrency(reportExpense)}</p>
+                  </div>
+                  <div className="col-span-2 pt-4 border-t border-gray-100">
+                    <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo do Período/Filtro</p>
+                    <p className={`text-3xl font-bold ${reportBalance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                      {formatCurrency(reportBalance)}
+                    </p>
+                  </div>
+                </div>
+
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-gray-100 print:border-gray-900">
+                      <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Data</th>
+                      <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Descrição</th>
+                      <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Categoria</th>
+                      <th className="py-3 font-semibold text-gray-700 text-right print:text-gray-900">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 print:divide-gray-200">
+                    {filteredTransactions
+                      .filter(t => t.reference_type !== 'reversal')
+                      .map((t) => (
+                        <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="py-4 text-gray-700">{formatDate(t.due_date || t.created_at)}</td>
+                          <td className="py-4">
+                            <p className={`font-medium ${t.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>
+                              {t.description}
+                            </p>
+                          </td>
+                          <td className="py-4 text-gray-700">{t.category || '-'}</td>
+                          <td className={`py-4 text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                            {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+
+                <div className="hidden print:block mt-16 text-center text-xs text-gray-400 border-t pt-8">
+                  <p>Este relatório é para uso interno e reflete a posição do caixa no momento da geração.</p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-gray-50 border-t flex justify-end shrink-0 print:hidden">
+                <Button onClick={() => setIsReportOpen(false)}>Fechar</Button>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       <style dangerouslySetInnerHTML={{
         __html: `
@@ -776,7 +805,7 @@ const FinancePage: React.FC = () => {
           }
         }
       `}} />
-    </div>
+    </div >
   );
 };
 
