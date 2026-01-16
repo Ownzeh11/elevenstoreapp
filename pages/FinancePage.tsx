@@ -84,12 +84,27 @@ const FinancePage: React.FC = () => {
           setTransactions(typedData);
 
           // Calculate totals (only paid for balance)
-          const income = typedData
-            .filter(t => t.type === 'income' && (t.status === 'paid' || !t.status))
+          // Net Income = Sum(Income) - Sum(Expense from Reversals)
+          // Net Expense = Sum(Expense) - Sum(Income from Reversals)
+
+          const rawIncome = typedData
+            .filter(t => t.type === 'income' && (t.status === 'paid' || !t.status) && t.reference_type !== 'reversal')
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
-          const expense = typedData
-            .filter(t => t.type === 'expense' && (t.status === 'paid' || !t.status))
+
+          const reversalExpenses = typedData
+            .filter(t => t.type === 'expense' && (t.status === 'paid' || !t.status) && t.reference_type === 'reversal')
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+          const rawExpense = typedData
+            .filter(t => t.type === 'expense' && (t.status === 'paid' || !t.status) && t.reference_type !== 'reversal')
+            .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+          const reversalIncomes = typedData
+            .filter(t => t.type === 'income' && (t.status === 'paid' || !t.status) && t.reference_type === 'reversal')
+            .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+          const income = rawIncome - reversalExpenses;
+          const expense = rawExpense - reversalIncomes;
 
           const pending = typedData
             .filter(t => t.type === 'income' && t.status === 'pending')

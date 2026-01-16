@@ -41,18 +41,29 @@ export const createReversal = async (transaction: Transaction) => {
 export const fetchTotalBalance = async (companyId: string) => {
     const { data, error } = await supabase
         .from('transactions')
-        .select('amount, type, status')
+        .select('amount, type, status, reference_type')
         .eq('company_id', companyId);
 
     if (error) throw error;
 
-    const income = data
-        .filter(t => t.type === 'income' && (!t.status || t.status === 'paid'))
+    const rawIncome = data
+        .filter(t => t.type === 'income' && (!t.status || t.status === 'paid') && t.reference_type !== 'reversal')
         .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
-    const expense = data
-        .filter(t => t.type === 'expense' && (!t.status || t.status === 'paid'))
+    const reversalExpenses = data
+        .filter(t => t.type === 'expense' && (!t.status || t.status === 'paid') && t.reference_type === 'reversal')
         .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+    const rawExpense = data
+        .filter(t => t.type === 'expense' && (!t.status || t.status === 'paid') && t.reference_type !== 'reversal')
+        .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+    const reversalIncomes = data
+        .filter(t => t.type === 'income' && (!t.status || t.status === 'paid') && t.reference_type === 'reversal')
+        .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+    const income = rawIncome - reversalExpenses;
+    const expense = rawExpense - reversalIncomes;
 
     return income - expense;
 };

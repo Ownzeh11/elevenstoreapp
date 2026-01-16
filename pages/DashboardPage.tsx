@@ -121,10 +121,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
 
       const todayStr = getLocalDateString();
 
-      const income = allTransactions?.filter(t => t.type === 'income' && (!t.status || t.status === 'paid')) || [];
-      const expenses = allTransactions?.filter(t => t.type === 'expense' && (!t.status || t.status === 'paid')) || [];
+      const incomeTxs = allTransactions?.filter(t => t.type === 'income' && (!t.status || t.status === 'paid')) || [];
+      const expenseTxs = allTransactions?.filter(t => t.type === 'expense' && (!t.status || t.status === 'paid')) || [];
 
-      const cashBalance = income.reduce((acc, t) => acc + Number(t.amount), 0) - expenses.reduce((acc, t) => acc + Number(t.amount), 0);
+      const cashBalance = incomeTxs.reduce((acc, t) => acc + Number(t.amount), 0) - expenseTxs.reduce((acc, t) => acc + Number(t.amount), 0);
 
       const todayTxs = allTransactions?.filter(t => {
         if (!t.created_at) return false;
@@ -134,23 +134,30 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
 
       // Net Sales = Today's Item Income - Today's Item Reversals
       const salesToday = todayTxs
-        .filter(t => t.category !== 'service' && t.type === 'income')
+        .filter(t => t.category !== 'service' && t.type === 'income' && t.reference_type !== 'reversal')
         .reduce((acc, t) => acc + Number(t.amount), 0) -
         todayTxs
           .filter(t => t.category !== 'service' && t.type === 'expense' && t.reference_type === 'reversal')
           .reduce((acc, t) => acc + Number(t.amount), 0);
 
       const servicesToday = todayTxs
-        .filter(t => t.category === 'service' && t.type === 'income')
+        .filter(t => t.category === 'service' && t.type === 'income' && t.reference_type !== 'reversal')
         .reduce((acc, t) => acc + Number(t.amount), 0) -
         todayTxs
           .filter(t => t.category === 'service' && t.type === 'expense' && t.reference_type === 'reversal')
           .reduce((acc, t) => acc + Number(t.amount), 0);
 
-      // Expenses Today = Everything that is NOT a reversal
-      const expensesToday = todayTxs
+      // Expenses Today = Everything that is NOT a reversal (from either side)
+      // Actually, net expenses today = Total Expenses (non-reversal) - Total Reversals of Expenses (income reversals)
+      const rawExpensesToday = todayTxs
         .filter(t => t.type === 'expense' && t.reference_type !== 'reversal')
         .reduce((acc, t) => acc + Number(t.amount), 0);
+
+      const reversalIncomesToday = todayTxs
+        .filter(t => t.type === 'income' && t.reference_type === 'reversal')
+        .reduce((acc, t) => acc + Number(t.amount), 0);
+
+      const expensesToday = rawExpensesToday - reversalIncomesToday;
 
       setStats({
         cashBalance,
