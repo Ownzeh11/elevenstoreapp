@@ -723,55 +723,57 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="flex flex-col max-h-[90vh]">
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-                  <input
-                    type="text"
-                    list="customers-list"
-                    name="customer"
-                    required
-                    placeholder="Selecione ou digite o nome"
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                    value={formData.customer}
-                    onChange={handleInputChange}
-                  />
-                  <datalist id="customers-list">
-                    {customersList.map((c: any) => (
-                      <option key={c.id} value={c.name} />
-                    ))}
-                  </datalist>
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomerModalOpen(true)}
-                    className="absolute right-2 top-2 text-gray-400 hover:text-indigo-600"
-                    title="Novo Cliente Rápido"
-                  >
-                    <UserPlus size={16} />
-                  </button>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Cliente</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      list="customers-list"
+                      name="customer"
+                      required
+                      placeholder="Selecione ou digite o nome"
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border pr-8"
+                      value={formData.customer}
+                      onChange={handleInputChange}
+                    />
+                    <datalist id="customers-list">
+                      {customersList.map((c: any) => (
+                        <option key={c.id} value={c.name} />
+                      ))}
+                    </datalist>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomerModalOpen(true)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600"
+                      title="Novo Cliente Rápido"
+                    >
+                      <UserPlus size={16} />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="border-t border-b py-4 my-2">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Itens da Venda</h4>
+                <div className="border border-gray-200 rounded-lg p-3 bg-gray-50/30">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Itens da Venda</h4>
                   <div className="flex gap-2 mb-2 items-end">
-                    <div className="w-24">
-                      <label className="block text-xs text-gray-500 mb-1">Tipo</label>
+                    <div className="w-20">
+                      <label className="block text-[10px] text-gray-500 mb-0.5">Tipo</label>
                       <select
-                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs p-1.5 border"
                         value={newItem.type}
                         onChange={(e) => setNewItem({ ...newItem, type: e.target.value as 'product' | 'service', id: '' })}
                       >
-                        <option value="product">Produto</option>
-                        <option value="service">Serviço</option>
+                        <option value="product">Prod</option>
+                        <option value="service">Serv</option>
                       </select>
                     </div>
                     <div className="flex-1">
-                      <label className="block text-xs text-gray-500 mb-1">
+                      <label className="block text-[10px] text-gray-500 mb-0.5">
                         {newItem.type === 'product' ? 'Produto' : 'Serviço'}
                       </label>
                       <select
-                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs p-1.5 border"
                         value={newItem.id}
                         onChange={(e) => setNewItem({ ...newItem, id: e.target.value })}
                       >
@@ -791,12 +793,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                         )}
                       </select>
                     </div>
-                    <div className="w-16">
-                      <label className="block text-xs text-gray-500 mb-1">Qtd</label>
+                    <div className="w-12">
+                      <label className="block text-[10px] text-gray-500 mb-0.5">Qtd</label>
                       <input
                         type="number"
                         min="1"
-                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs p-1.5 border"
                         value={newItem.quantity}
                         onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
                       />
@@ -805,33 +807,32 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                       type="button"
                       onClick={handleAddItem}
                       disabled={!newItem.id}
-                      className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-300"
+                      className="p-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-300 shadow-sm"
                     >
-                      <Plus size={20} />
+                      <Plus size={18} />
                     </button>
                   </div>
 
-                  {/* Items List */}
-                  <div className="bg-gray-50 rounded-md p-2 max-h-40 overflow-y-auto space-y-2">
+                  <div className="bg-white rounded border border-gray-200 p-1 max-h-32 overflow-y-auto space-y-1">
                     {saleItems.length === 0 ? (
-                      <p className="text-xs text-gray-500 text-center py-2">Nenhum item adicionado.</p>
+                      <p className="text-[10px] text-gray-400 text-center py-2">Nenhum item adicionado.</p>
                     ) : (
                       saleItems.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
-                          <div>
-                            <span className="font-medium">{item.product_name}</span>
-                            <div className="text-gray-500 text-xs">
-                              {item.quantity}x R$ {item.unit_price.toFixed(2)}
+                        <div key={idx} className="flex justify-between items-center text-[11px] bg-gray-50/50 p-1.5 rounded border border-gray-100 hover:bg-gray-50 transition-colors">
+                          <div className="flex-1 min-w-0 pr-2">
+                            <span className="font-medium text-gray-700 block truncate">{item.product_name}</span>
+                            <div className="text-gray-400 text-[10px]">
+                              {item.quantity}un x R$ {item.unit_price.toFixed(2)}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold">R$ {item.total_price.toFixed(2)}</span>
+                            <span className="font-bold text-gray-900">R$ {item.total_price.toFixed(2)}</span>
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(idx)}
-                              className="text-red-500 hover:text-red-700"
+                              className="text-red-400 hover:text-red-600 p-0.5"
                             >
-                              <Trash size={16} />
+                              <Trash size={14} />
                             </button>
                           </div>
                         </div>
@@ -840,21 +841,21 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                <div className="grid grid-cols-2 gap-3 items-end">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Desconto</label>
-                    <div className="flex gap-2">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Desconto</label>
+                    <div className="flex gap-1.5">
                       <input
                         type="number"
                         step="0.01"
                         name="discount_value"
-                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        className="flex-1 min-w-0 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs p-2 border"
                         value={formData.discount_value}
                         onChange={handleInputChange}
                       />
                       <select
                         name="discount_type"
-                        className="w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        className="w-16 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs p-2 border bg-gray-50"
                         value={formData.discount_type}
                         onChange={handleInputChange}
                       >
@@ -864,47 +865,47 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Subtotal (R$)</label>
+                    <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1 text-right">Subtotal (R$)</label>
                     <input
                       type="number"
                       readOnly
-                      className="w-full rounded-md border-gray-300 shadow-sm bg-gray-100 sm:text-sm p-2 border cursor-not-allowed"
+                      className="w-full rounded-md border-gray-200 shadow-none bg-gray-50 text-gray-500 text-xs p-2 border text-right cursor-not-allowed"
                       value={formData.subtotal}
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor Total (R$)</label>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Valor Total (R$)</label>
                     <input
                       type="number"
                       step="0.01"
                       name="total"
                       required
                       readOnly
-                      className="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 text-indigo-700 font-bold sm:text-sm p-2 border cursor-not-allowed"
+                      className="w-full rounded-md border-gray-300 shadow-sm bg-indigo-50 text-indigo-700 font-bold text-base p-2 border cursor-not-allowed"
                       value={formData.total}
                     />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mt-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
                     <input
                       type="date"
                       name="date"
                       required
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs p-2 border"
                       value={formData.date}
                       onChange={handleInputChange}
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Forma de Pagamento</label>
                     <select
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs p-2 border"
                       value={formData.payment_method}
                       onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as any })}
                     >
@@ -914,15 +915,12 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                       <option value="promissória">Promissória</option>
                     </select>
                   </div>
-                </div>
-
-                {/* Conditionally show installments for Cartão and Promissória */}
-                {(formData.payment_method === 'cartão' || formData.payment_method === 'promissória') && (
-                  <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Parcelas</label>
+                  {/* Conditionally show installments for Cartão and Promissória in the SAME row */}
+                  {(formData.payment_method === 'cartão' || formData.payment_method === 'promissória') && (
+                    <div className="animate-in slide-in-from-right-2 duration-200">
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Parcelas</label>
                       <select
-                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs p-2 border"
                         value={formData.installments}
                         onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
                       >
@@ -931,19 +929,21 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                         ))}
                       </select>
                     </div>
-                    {parseInt(formData.installments) > 1 && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Entrada (R$)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                          placeholder="0,00"
-                          value={formData.down_payment}
-                          onChange={(e) => setFormData({ ...formData, down_payment: e.target.value })}
-                        />
-                      </div>
-                    )}
+                  )}
+                </div>
+
+                {/* Second row for Entrada if Parcelas > 1 */}
+                {(formData.payment_method === 'cartão' || formData.payment_method === 'promissória') && parseInt(formData.installments) > 1 && (
+                  <div className="animate-in slide-in-from-top-2 duration-200">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Entrada (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm p-2 border"
+                      placeholder="0,00"
+                      value={formData.down_payment}
+                      onChange={(e) => setFormData({ ...formData, down_payment: e.target.value })}
+                    />
                   </div>
                 )}
 
