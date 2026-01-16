@@ -13,6 +13,9 @@ import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminCompaniesPage from './pages/AdminCompaniesPage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminPlansPage from './pages/AdminPlansPage';
+import AdminLogsPage from './pages/AdminLogsPage';
 import AdminPlaceholder from './pages/AdminPlaceholder';
 import Card from './components/ui/Card';
 import Button from './components/ui/Button';
@@ -256,11 +259,11 @@ const AppContent: React.FC = () => {
                 <>
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/companies" element={<AdminCompaniesPage />} />
-                  <Route path="/admin/plans" element={<AdminPlaceholder title="Planos & Assinaturas" description="Gerencie modelos de preços, limites de recursos e períodos de teste do SaaS." />} />
-                  <Route path="/admin/users" element={<AdminPlaceholder title="Usuários & Acessos" description="Controle global de permissões, papéis administrativos e auditoria de usuários." />} />
-                  <Route path="/admin/billing" element={<AdminPlaceholder title="Financeiro SaaS" description="Visão consolidada de faturas, inadimplência e projeção de receita MRR." />} />
-                  <Route path="/admin/logs" element={<AdminPlaceholder title="Logs de Sistema" description="Rastreamento completo de ações administrativas e auditoria de segurança." />} />
-                  <Route path="/admin/settings" element={<AdminPlaceholder title="Configurações Globais" description="Parâmetros gerais do sistema, chaves de API e variáveis de ambiente SaaS." />} />
+                  <Route path="/admin/plans" element={<AdminPlansPage />} />
+                  <Route path="/admin/users" element={<AdminUsersPage />} />
+                  <Route path="/admin/logs" element={<AdminLogsPage />} />
+                  <Route path="/admin/billing" element={<AdminPlaceholder title="Faturamento SaaS" description="Faturamento, faturas e pagamentos recorrentes." />} />
+                  <Route path="/admin/settings" element={<AdminPlaceholder title="Configurações Sistema" description="Parâmetros globais da plataforma." />} />
                 </>
               )}
 

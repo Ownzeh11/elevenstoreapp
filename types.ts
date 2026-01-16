@@ -111,12 +111,39 @@ export interface RecentActivity {
 export interface Company {
   id: string;
   name: string;
-  status: 'active' | 'suspended' | 'blocked';
+  cnpj_cpf?: string;
+  billing_email?: string;
+  status: 'active' | 'suspended' | 'blocked' | 'overdue' | 'canceled';
   plan: string;
+  saas_plan_id?: string;
+  renewal_date?: string;
+  expires_at?: string;
   address?: string;
   phone?: string;
   currency?: string;
-  expires_at?: string;
+  enabled_modules?: string[];
+  created_at: string;
+}
+
+export interface SaaSPlan {
+  id: string;
+  name: string;
+  price: number;
+  billing_cycle: 'monthly' | 'yearly';
+  max_users: number;
+  max_products: number;
+  max_customers: number;
+  features: string[];
+  created_at: string;
+}
+
+export interface SaaSAuditLog {
+  id: string;
+  admin_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  details: any;
   created_at: string;
 }
 

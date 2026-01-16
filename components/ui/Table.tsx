@@ -6,7 +6,7 @@ interface TableProps<T> {
   data: T[];
   columns: TableColumn<T>[];
   className?: string;
-  rowKey: keyof T;
+  rowKey: keyof T | ((item: T) => string | number);
 }
 
 const Table = <T extends Record<string, any>>({ data, columns, className = '', rowKey }: TableProps<T>) => {
@@ -27,18 +27,21 @@ const Table = <T extends Record<string, any>>({ data, columns, className = '', r
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 bg-white">
-          {data.map((item) => (
-            <tr key={String(item[rowKey])}>
-              {columns.map((column) => (
-                <td
-                  key={String(column.key)}
-                  className={`whitespace-nowrap px-6 py-4 text-sm text-gray-800 ${column.cellClassName || ''}`}
-                >
-                  {column.render ? column.render(item) : (item[column.key] as React.ReactNode)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {data.map((item, index) => {
+            const key = typeof rowKey === 'function' ? rowKey(item) : String(item[rowKey]);
+            return (
+              <tr key={key}>
+                {columns.map((column) => (
+                  <td
+                    key={String(column.key)}
+                    className={`whitespace-nowrap px-6 py-4 text-sm text-gray-800 ${column.cellClassName || ''}`}
+                  >
+                    {column.render ? column.render(item) : (item[column.key] as React.ReactNode)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
