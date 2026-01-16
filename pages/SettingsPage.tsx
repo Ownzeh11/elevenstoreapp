@@ -3,12 +3,13 @@ import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { supabase } from '../utils/supabaseClient';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Database, RefreshCcw } from 'lucide-react';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [savingAccount, setSavingAccount] = useState(false);
   const [savingCompany, setSavingCompany] = useState(false);
+  const [migrating, setMigrating] = useState(false);
 
   // Account settings state
   const [username, setUsername] = useState('');
@@ -133,6 +134,51 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleMigrateCategories = async () => {
+    if (!companyId) return;
+    if (!confirm('Deseja realmente migrar TODAS as vendas (antigas e novas) para a categoria "Venda de Produtos"? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      setMigrating(true);
+
+      // 1. Ensure category exists
+      const { data: existingCat } = await supabase
+        .from('transaction_categories')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('name', 'Venda de Produtos')
+        .maybeSingle();
+
+      if (!existingCat) {
+        const { error: createError } = await supabase.from('transaction_categories').insert({
+          company_id: companyId,
+          name: 'Venda de Produtos',
+          type: 'income'
+        });
+        if (createError) throw createError;
+      }
+
+      // 2. Update all sales transactions
+      // Using OR syntax to cover all cases: reference_type=sale OR origin IN (product_sale, service_sale) OR category=Vendas
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({ category: 'Venda de Produtos' })
+        .eq('company_id', companyId)
+        .or('reference_type.eq.sale,origin.eq.product_sale,origin.eq.service_sale,category.eq.Vendas');
+
+      if (updateError) throw updateError;
+
+      alert('Migração concluída com sucesso! Todas as vendas agora são "Venda de Produtos".');
+    } catch (error: any) {
+      console.error('Error migrating data:', error);
+      alert('Erro na migração: ' + error.message);
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 flex justify-center items-center min-h-[400px]">
@@ -231,7 +277,35 @@ const SettingsPage: React.FC = () => {
           </div>
         </form>
       </Card>
-    </div>
+
+      {/* Data Maintenance */}
+      <Card>
+        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <Database size={24} className="text-gray-500" />
+          Manutenção de Dados
+        </h2>
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-blue-800 mb-2">Atualização de Categorias de Vendas</h3>
+          <p className="text-sm text-blue-600 mb-4">
+            Utilize esta ferramenta para atualizar todas as vendas antigas (incluindo "Vendas" e "product/service")
+            para a nova categoria padronizada <strong>"Venda de Produtos"</strong>.
+            Esta ação garante que seus filtros e relatórios fiquem consistentes.
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleMigrateCategories}
+            disabled={migrating}
+            className="w-full sm:w-auto"
+          >
+            {migrating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
+            {migrating ? 'Migrando...' : 'Migrar Vendas para "Venda de Produtos"'}
+          </Button>
+        </div>
+      </Card>
+
+
+    </div >
   );
 };
 

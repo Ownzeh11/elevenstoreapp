@@ -301,7 +301,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
             reference_id: newSaleId,
             reference_type: 'sale',
             origin: 'product_sale',
-            category: 'Vendas',
+            category: 'Venda de Produtos',
             status: 'paid',
             due_date: formData.date
           });
@@ -315,7 +315,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
             reference_id: newSaleId,
             reference_type: 'sale',
             origin: 'service_sale',
-            category: 'Vendas',
+            category: 'Venda de Produtos',
             status: 'paid',
             due_date: formData.date
           });
@@ -359,7 +359,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
               reference_id: newSaleId,
               reference_type: 'sale',
               origin: 'product_sale',
-              category: 'Vendas',
+              category: 'Venda de Produtos',
               status: status,
               due_date: dueDateStr
             });
@@ -374,7 +374,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
               reference_id: newSaleId,
               reference_type: 'sale',
               origin: 'service_sale',
-              category: 'Vendas',
+              category: 'Venda de Produtos',
               status: status,
               due_date: dueDateStr
             });
