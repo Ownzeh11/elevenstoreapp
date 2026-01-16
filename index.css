@@ -1,5 +1,10 @@
 /* Standard CSS - No Tailwind directives as they are not processed here */
 
+@page {
+  size: A4;
+  margin: 1cm;
+}
+
 @media print {
 
   /* 1. RESET PAGE GEOMETRY */
