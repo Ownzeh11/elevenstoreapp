@@ -14,7 +14,6 @@ import { createTransaction, createReversal } from '../utils/finance';
 const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'cashflow' | 'receivables' | 'categories'>('cashflow');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,6 +23,7 @@ const FinancePage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
 
 
   // New Transaction Form
@@ -140,7 +140,7 @@ const FinancePage: React.FC = () => {
           .order('name');
 
         if (categoryData) {
-          setCategories(categoryData);
+          setDbCategories(categoryData);
         }
       }
 
@@ -283,7 +283,7 @@ const FinancePage: React.FC = () => {
   // Keep datalist options but also add DB categories
   const allCategoryNames = Array.from(new Set([
     ...transactions.map(t => t.category),
-    ...categories.map(c => c.name),
+    ...dbCategories.map(c => c.name),
     'Aluguel', 'Salário', 'Marketing', 'Fornecedores', 'Infraestrutura', 'Impostos', 'Manutenção', 'Venda', 'Serviço'
   ].filter(Boolean))) as string[];
 
@@ -745,8 +745,10 @@ const CategoryManager: React.FC<{ companyId: string, onUpdate: () => void }> = (
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<'income' | 'expense' | 'both'>('both');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const fetchCategories = async () => {
+    if (!companyId) return;
     try {
       setLoading(true);
       const { data } = await supabase
@@ -755,13 +757,15 @@ const CategoryManager: React.FC<{ companyId: string, onUpdate: () => void }> = (
         .eq('company_id', companyId)
         .order('name');
       setCategories(data || []);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCategories();
+    if (companyId) fetchCategories();
   }, [companyId]);
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -769,16 +773,26 @@ const CategoryManager: React.FC<{ companyId: string, onUpdate: () => void }> = (
     if (!newName.trim()) return;
 
     try {
-      const { error } = await supabase
-        .from('transaction_categories')
-        .insert([{ company_id: companyId, name: newName.trim(), type: newType }]);
+      if (editingId) {
+        const { error } = await supabase
+          .from('transaction_categories')
+          .update({ name: newName.trim(), type: newType })
+          .eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('transaction_categories')
+          .insert([{ company_id: companyId, name: newName.trim(), type: newType }]);
+        if (error) throw error;
+      }
 
-      if (error) throw error;
       setNewName('');
+      setNewType('both');
+      setEditingId(null);
       fetchCategories();
       onUpdate();
     } catch (error: any) {
-      alert('Erro ao adicionar categoria: ' + error.message);
+      alert('Erro ao salvar categoria: ' + error.message);
     }
   };
 
@@ -799,12 +813,51 @@ const CategoryManager: React.FC<{ companyId: string, onUpdate: () => void }> = (
     }
   };
 
+  const handleEdit = (cat: any) => {
+    setNewName(cat.name);
+    setNewType(cat.type);
+    setEditingId(cat.id);
+  };
+
+  const handleInitializeDefaults = async () => {
+    if (!confirm('Deseja inicializar com as categorias padrão (Aluguel, Salário, Internet, etc.)?')) return;
+
+    const defaults = [
+      { name: 'Aluguel', type: 'expense' },
+      { name: 'Salário', type: 'expense' },
+      { name: 'Marketing', type: 'expense' },
+      { name: 'Internet/Telefone', type: 'expense' },
+      { name: 'Limpeza', type: 'expense' },
+      { name: 'Fornecedores', type: 'expense' },
+      { name: 'Energia/Água', type: 'expense' },
+      { name: 'Venda de Produtos', type: 'income' },
+      { name: 'Serviços Automotivos', type: 'income' },
+    ];
+
+    try {
+      setLoading(true);
+      const payload = defaults.map(d => ({ ...d, company_id: companyId }));
+      const { error } = await supabase.from('transaction_categories').insert(payload);
+      if (error) throw error;
+      fetchCategories();
+      onUpdate();
+    } catch (error: any) {
+      alert('Erro ao inicializar: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!companyId) return <div className="p-12 text-center text-gray-500">Buscando informações da empresa...</div>;
+
   return (
     <div className="space-y-6">
       <Card className="bg-gray-50 border-gray-200">
         <form onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1 space-y-1">
-            <label className="block text-sm font-semibold text-gray-700">Nome da Categoria</label>
+            <label className="block text-sm font-semibold text-gray-700">
+              {editingId ? 'Editar Categoria' : 'Nova Categoria'}
+            </label>
             <Input
               id="cat-name"
               placeholder="Ex: Aluguel, Internet..."
@@ -824,35 +877,63 @@ const CategoryManager: React.FC<{ companyId: string, onUpdate: () => void }> = (
               <option value="expense">Despesa</option>
             </select>
           </div>
-          <Button type="submit" variant="primary" icon={Plus}>Adicionar</Button>
+          <div className="flex gap-2 w-full md:w-auto">
+            {editingId && (
+              <Button type="button" variant="secondary" onClick={() => { setEditingId(null); setNewName(''); }}>Cancelar</Button>
+            )}
+            <Button type="submit" variant="primary" icon={editingId ? CheckCircle : Plus}>
+              {editingId ? 'Salvar' : 'Adicionar'}
+            </Button>
+          </div>
         </form>
       </Card>
 
       {loading ? (
         <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600" /></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.map(cat => (
-            <Card key={cat.id} className="flex justify-between items-center p-4 hover:shadow-md transition-shadow">
-              <div>
-                <p className="font-bold text-gray-900">{cat.name}</p>
-                <p className="text-xs text-gray-500 uppercase tracking-widest">
-                  {cat.type === 'both' ? 'Receita & Despesa' : cat.type === 'income' ? 'Receita' : 'Despesa'}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={Trash2}
-                onClick={() => handleDelete(cat.id)}
-                className="text-gray-400 hover:text-red-600"
-              />
-            </Card>
-          ))}
-          {categories.length === 0 && (
-            <p className="col-span-full text-center py-12 text-gray-500 italic">Nenhuma categoria personalizada cadastrada.</p>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {categories.map(cat => (
+              <Card key={cat.id} className="flex justify-between items-center p-4 hover:shadow-md transition-shadow group">
+                <div>
+                  <p className="font-bold text-gray-900">{cat.name}</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-widest">
+                    {cat.type === 'both' ? 'Receita & Despesa' : cat.type === 'income' ? 'Receita' : 'Despesa'}
+                  </p>
+                </div>
+                <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={Edit}
+                    onClick={() => handleEdit(cat)}
+                    className="text-blue-400 hover:text-blue-600"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={Trash2}
+                    onClick={() => handleDelete(cat.id)}
+                    className="text-gray-400 hover:text-red-600"
+                  />
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {categories.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+              <p className="text-gray-500 mb-4 italic">Nenhuma categoria personalizada cadastrada.</p>
+              <Button variant="secondary" size="sm" icon={Plus} onClick={handleInitializeDefaults}>
+                Inicializar Categorias Padrão
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-center pt-4">
+              <button onClick={handleInitializeDefaults} className="text-xs text-indigo-600 hover:underline">Adicionar padrões faltantes</button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

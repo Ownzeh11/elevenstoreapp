@@ -30,7 +30,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
     servicesToday: 0,
     expensesToday: 0,
     customersTotal: 0,
-    productsLow: 0
+    productsLow: 0,
+    expenseBreakdown: [] as { name: string, value: number }[]
   });
 
   useEffect(() => {
@@ -159,13 +160,26 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
 
       const expensesToday = rawExpensesToday - reversalIncomesToday;
 
+      // 7. Calculate Expense Breakdown by Category
+      const expenseByCategory: Record<string, number> = {};
+      allTransactions
+        ?.filter(t => t.type === 'expense' && (t.status === 'paid' || !t.status))
+        .forEach(t => {
+          const cat = t.category || 'Outros';
+          expenseByCategory[cat] = (expenseByCategory[cat] || 0) + Number(t.amount);
+        });
+
       setStats({
         cashBalance,
         salesToday,
         servicesToday,
         expensesToday,
         customersTotal: customersCount || 0,
-        productsLow: lowStockCount
+        productsLow: lowStockCount,
+        expenseBreakdown: Object.entries(expenseByCategory)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5)
       });
 
     } catch (error) {
@@ -256,43 +270,68 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
         ))}
       </div>
 
-      {/* Recent Activities */}
-      <Card>
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Atividades Recentes</h2>
-        <div className="space-y-4">
-          {activities.length === 0 ? (
-            <p className="text-gray-500 text-sm">Nenhuma atividade recente.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <Card className="lg:col-span-1">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Gasto por Categoria</h2>
+          {stats.expenseBreakdown.length === 0 ? (
+            <p className="text-gray-500 text-sm">Nenhuma despesa registrada.</p>
           ) : (
-            activities.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center flex-grow">
-                  <div className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-50 mr-3">
-                    {renderActivityIcon(activity)}
+            <div className="space-y-4">
+              {stats.expenseBreakdown.map((item, idx) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-gray-700">{item.name}</span>
+                    <span className="text-gray-900 font-bold">R$ {item.value.toFixed(2).replace('.', ',')}</span>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {activity.description.split(' - ')[0]}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {activity.description.split(' - ')[1] || ''}
-                    </p>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div
+                      className="bg-red-500 h-1.5 rounded-full"
+                      style={{ width: `${Math.min(100, (item.value / (stats.expensesToday || 1)) * 100)}%` }}
+                    ></div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end sm:flex-row sm:items-baseline sm:space-x-4">
-                  {activity.amount !== undefined && activity.amount > 0 && (
-                    <span className="text-sm font-semibold text-gray-900 sm:min-w-[80px] text-right">
-                      R$ {activity.amount.toFixed(2).replace('.', ',')}
-                    </span>
-                  )}
-                  <span className="text-xs text-gray-500 sm:min-w-[100px] text-right">
-                    {activity.timeAgo}
-                  </span>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
-        </div>
-      </Card>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Atividades Recentes</h2>
+          <div className="space-y-4">
+            {activities.length === 0 ? (
+              <p className="text-gray-500 text-sm">Nenhuma atividade recente.</p>
+            ) : (
+              activities.map((activity) => (
+                <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center flex-grow">
+                    <div className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-50 mr-3">
+                      {renderActivityIcon(activity)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {activity.description.split(' - ')[0]}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {activity.description.split(' - ')[1] || ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end sm:flex-row sm:items-baseline sm:space-x-4">
+                    {activity.amount !== undefined && activity.amount > 0 && (
+                      <span className="text-sm font-semibold text-gray-900 sm:min-w-[80px] text-right">
+                        R$ {activity.amount.toFixed(2).replace('.', ',')}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-500 sm:min-w-[100px] text-right">
+                      {activity.timeAgo}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 };
