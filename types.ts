@@ -53,7 +53,7 @@ export interface Transaction {
   reference_id?: string;
   reference_type?: 'sale' | 'reversal' | 'initial' | 'manual';
   origin?: 'product_sale' | 'service_sale' | 'manual';
-  category?: 'product' | 'service' | 'other';
+  category?: string;
   status?: 'paid' | 'pending';
   due_date?: string;
 }

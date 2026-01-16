@@ -6,7 +6,8 @@ import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Pill from '../components/ui/Pill';
 import { Transaction, TableColumn } from '../types';
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown, X, Loader2, DollarSign, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown, X, Loader2, DollarSign, CheckCircle, Clock, Printer, FileText } from 'lucide-react';
+
 import { supabase } from '../utils/supabaseClient';
 import { createTransaction, createReversal } from '../utils/finance';
 
@@ -19,15 +20,20 @@ const FinancePage: React.FC = () => {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('');
+
 
   // New Transaction Form
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
     type: 'income' as 'income' | 'expense',
+    category: '',
     status: 'paid' as 'paid' | 'pending',
     due_date: new Date().toISOString().split('T')[0]
   });
+
 
   // Totals
   const [totalIncome, setTotalIncome] = useState(0);
@@ -154,7 +160,7 @@ const FinancePage: React.FC = () => {
             reference_id: oldTx.id,
             reference_type: 'manual',
             origin: 'manual',
-            category: 'other',
+            category: formData.category || 'other',
             status: formData.status,
             due_date: formData.due_date
           });
@@ -167,16 +173,18 @@ const FinancePage: React.FC = () => {
           type: formData.type,
           reference_type: 'manual',
           origin: 'manual',
-          category: 'other',
+          category: formData.category || 'other',
           status: formData.status,
           due_date: formData.due_date
         });
       }
 
+
       setIsModalOpen(false);
       setEditingId(null);
-      setFormData({ description: '', amount: '', type: 'income', status: 'paid', due_date: new Date().toISOString().split('T')[0] });
+      setFormData({ description: '', amount: '', type: 'income', category: '', status: 'paid', due_date: new Date().toISOString().split('T')[0] });
       fetchData();
+
     } catch (error: any) {
       alert('Erro ao salvar transação: ' + error.message);
     } finally {
@@ -218,26 +226,34 @@ const FinancePage: React.FC = () => {
       description: transaction.description,
       amount: transaction.amount.toString(),
       type: transaction.type,
+      category: transaction.category || '',
       status: transaction.status || 'paid',
       due_date: transaction.due_date || new Date().toISOString().split('T')[0]
     });
+
     setIsModalOpen(true);
   };
 
   const handleOpenModal = () => {
     setEditingId(null);
-    setFormData({ description: '', amount: '', type: 'income', status: 'paid', due_date: new Date().toISOString().split('T')[0] });
+    setFormData({ description: '', amount: '', type: 'income', category: '', status: 'paid', due_date: new Date().toISOString().split('T')[0] });
     setIsModalOpen(true);
+
   };
 
   const filteredTransactions = transactions.filter(t => {
     const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === '' || t.category === categoryFilter;
+
     if (activeTab === 'cashflow') {
-      return matchesSearch && (t.status === 'paid' || !t.status);
+      return matchesSearch && matchesCategory && (t.status === 'paid' || !t.status);
     } else {
-      return matchesSearch && t.status === 'pending' && t.type === 'income';
+      return matchesSearch && matchesCategory && t.status === 'pending' && t.type === 'income';
     }
   });
+
+  const categories = Array.from(new Set(transactions.map(t => t.category).filter(Boolean))) as string[];
+
 
   const formatCurrency = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
   const formatDate = (isoString?: string) => {
@@ -252,7 +268,9 @@ const FinancePage: React.FC = () => {
       render: (t) => formatDate(t.due_date || t.created_at)
     },
     { key: 'description', header: 'Descrição', cellClassName: 'font-medium' },
+    { key: 'category', header: 'Categoria', render: (t) => t.category || '-' },
     { key: 'amount', header: 'Valor', render: (t) => formatCurrency(t.amount) },
+
     {
       key: 'actions',
       header: 'Ações',
@@ -363,6 +381,16 @@ const FinancePage: React.FC = () => {
               {activeTab === 'cashflow' ? 'Movimentações Realizadas' : 'Futuros Recebimentos'}
             </h2>
             <div className="flex w-full sm:w-auto gap-3">
+              <select
+                className="w-full sm:w-48 px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="">Todas Categorias</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
               <Input
                 id="search"
                 type="search"
@@ -371,9 +399,17 @@ const FinancePage: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="max-w-xs"
               />
+              <Button
+                variant="secondary"
+                icon={FileText}
+                onClick={() => setIsReportOpen(true)}
+              >
+                Relatório
+              </Button>
               <Button variant="primary" icon={Plus} onClick={handleOpenModal}>
                 Nova Transação
               </Button>
+
             </div>
           </div>
 
@@ -438,6 +474,30 @@ const FinancePage: React.FC = () => {
                 </div>
               </div>
 
+              <div className="space-y-1">
+                <label className="block text-sm font-semibold text-gray-700">Categoria</label>
+                <input
+                  list="categories-list"
+                  name="category"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+                  value={formData.category}
+                  onChange={handleInputChange}
+                  placeholder="Ex: Aluguel, Salário, Marketing..."
+                />
+                <datalist id="categories-list">
+                  <option value="Aluguel" />
+                  <option value="Salário" />
+                  <option value="Marketing" />
+                  <option value="Fornecedores" />
+                  <option value="Infraestrutura" />
+                  <option value="Impostos" />
+                  <option value="Manutenção" />
+                  <option value="Venda" />
+                  <option value="Serviço" />
+                </datalist>
+              </div>
+
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="block text-sm font-semibold text-gray-700">Status</label>
@@ -476,8 +536,160 @@ const FinancePage: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Modal de Relatório */}
+      {isReportOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 px-4 print-container">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-6 border-b shrink-0">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Relatório Financeiro</h3>
+                <p className="text-sm text-gray-500">Posição em {new Date().toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="secondary"
+                  icon={Printer}
+                  onClick={() => window.print()}
+                  className="hidden sm:flex"
+                >
+                  Imprimir
+                </Button>
+                <button onClick={() => setIsReportOpen(false)} className="text-gray-400 hover:text-gray-600 print:hidden">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-grow print-area" id="finance-report-print">
+              {/* Cabeçalho exclusivo para impressão */}
+              <div className="hidden print:block mb-8">
+                <div className="flex justify-between items-end border-b-2 border-gray-900 pb-4">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 uppercase tracking-tight">Fluxo de Caixa</h1>
+                    <p className="text-gray-600 mt-1">Movimentações financeiras da empresa</p>
+                  </div>
+                  <div className="text-right text-sm text-gray-500">
+                    <p>Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
+                    <p>Hora: {new Date().toLocaleTimeString('pt-BR')}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-8 print:border print:p-4 print:rounded-lg">
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Receitas (Confirmadas)</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(totalIncome)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Despesas (Pagas)</p>
+                  <p className="text-2xl font-bold text-red-600">{formatCurrency(totalExpense)}</p>
+                </div>
+                <div className="col-span-2 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo Final</p>
+                  <p className={`text-3xl font-bold ${cashBalance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                    {formatCurrency(cashBalance)}
+                  </p>
+                </div>
+              </div>
+
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-100 print:border-gray-900">
+                    <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Data</th>
+                    <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Descrição</th>
+                    <th className="py-3 font-semibold text-gray-700 print:text-gray-900">Categoria</th>
+                    <th className="py-3 font-semibold text-gray-700 text-right print:text-gray-900">Valor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50 print:divide-gray-200">
+                  {filteredTransactions.map((t) => (
+                    <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="py-4 text-gray-700">{formatDate(t.due_date || t.created_at)}</td>
+                      <td className="py-4">
+                        <p className={`font-medium ${t.type === 'income' ? 'text-green-700' : 'text-red-700'}`}>
+                          {t.description}
+                        </p>
+                      </td>
+                      <td className="py-4 text-gray-700">{t.category || '-'}</td>
+                      <td className={`py-4 text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="hidden print:block mt-16 text-center text-xs text-gray-400 border-t pt-8">
+                <p>Este relatório é para uso interno e reflete a posição do caixa no momento da geração.</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t flex justify-end shrink-0 print:hidden">
+              <Button onClick={() => setIsReportOpen(false)}>Fechar</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @media print {
+          aside, header, footer, button, .print\\:hidden {
+            display: none !important;
+          }
+
+          .md\\:ml-64, main, #root {
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          .p-4.md\\:p-8 > *:not(.print-container), 
+          .grid, 
+          .shadow-2xl:not(.print-container),
+          .max-w-7xl > *:not(.print-container) {
+            display: none !important;
+          }
+
+          .print-area {
+            position: relative !important;
+            display: block !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            visibility: visible !important;
+          }
+
+          .fixed {
+            position: relative !important;
+            display: block !important;
+            background: white !important;
+            z-index: auto !important;
+          }
+
+          .bg-black, .bg-opacity-50 {
+            display: none !important;
+          }
+
+          #finance-report-print, 
+          #finance-report-print * {
+            visibility: visible !important;
+          }
+          
+          table {
+            width: 100% !important;
+            border-spacing: 0 !important;
+            border-collapse: collapse !important;
+          }
+          
+          th, td {
+            border-bottom: 1px solid #eee !important;
+          }
+        }
+      `}} />
     </div>
   );
 };
+
 
 export default FinancePage;
