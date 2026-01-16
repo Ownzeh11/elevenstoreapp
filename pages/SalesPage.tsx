@@ -350,6 +350,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
             status = 'paid';
           }
 
+          // FIX: If it is an immediate payment (paid), the due date must be the SAME as the sale date, not +30 days.
+          const finalDueDate = status === 'paid' ? formData.date : dueDateStr;
+
           if (productTotal > 0) {
             await createTransaction({
               company_id: companyId,
@@ -361,7 +364,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
               origin: 'product_sale',
               category: 'Venda de Produtos',
               status: status,
-              due_date: dueDateStr
+              due_date: finalDueDate
             });
           }
 
@@ -376,7 +379,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
               origin: 'service_sale',
               category: 'Venda de Produtos',
               status: status,
-              due_date: dueDateStr
+              due_date: finalDueDate
             });
           }
         }
