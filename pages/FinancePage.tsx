@@ -264,8 +264,20 @@ const FinancePage: React.FC = () => {
     const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === '' || t.category === categoryFilter;
 
-    // Date Filtering
-    const txDate = new Date(t.due_date || t.created_at).toISOString().split('T')[0];
+    // Date Filtering Logic
+    let txDate = '';
+    if (t.due_date) {
+      // If due_date exists, it's a YYYY-MM-DD string. Use it directly.
+      txDate = t.due_date;
+    } else if (t.created_at) {
+      // If only created_at, convert to LOCAL date string YYYY-MM-DD (not UTC)
+      const d = new Date(t.created_at);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      txDate = `${year}-${month}-${day}`;
+    }
+
     const matchesStart = startDate === '' || txDate >= startDate;
     const matchesEnd = endDate === '' || txDate <= endDate;
 
@@ -316,6 +328,11 @@ const FinancePage: React.FC = () => {
   const formatCurrency = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
   const formatDate = (isoString?: string) => {
     if (!isoString) return '-';
+    // Fix: If simple YYYY-MM-DD string, prevent timezone shift by parsing manually
+    if (isoString.length === 10 && isoString.includes('-')) {
+      const [year, month, day] = isoString.split('-');
+      return `${day}/${month}/${year}`;
+    }
     return new Date(isoString).toLocaleDateString('pt-BR');
   };
 
