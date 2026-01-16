@@ -722,230 +722,234 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-                <input
-                  type="text"
-                  list="customers-list"
-                  name="customer"
-                  required
-                  placeholder="Selecione ou digite o nome"
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                  value={formData.customer}
-                  onChange={handleInputChange}
-                />
-                <datalist id="customers-list">
-                  {customersList.map((c: any) => (
-                    <option key={c.id} value={c.name} />
-                  ))}
-                </datalist>
-                <button
-                  type="button"
-                  onClick={() => setIsCustomerModalOpen(true)}
-                  className="absolute right-2 top-2 text-gray-400 hover:text-indigo-600"
-                  title="Novo Cliente Rápido"
-                >
-                  <UserPlus size={16} />
-                </button>
-              </div>
+            <form onSubmit={handleSubmit} className="flex flex-col max-h-[90vh]">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-              <div className="border-t border-b py-4 my-2">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Itens da Venda</h4>
-                <div className="flex gap-2 mb-2 items-end">
-                  <div className="w-24">
-                    <label className="block text-xs text-gray-500 mb-1">Tipo</label>
-                    <select
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                      value={newItem.type}
-                      onChange={(e) => setNewItem({ ...newItem, type: e.target.value as 'product' | 'service', id: '' })}
-                    >
-                      <option value="product">Produto</option>
-                      <option value="service">Serviço</option>
-                    </select>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-500 mb-1">
-                      {newItem.type === 'product' ? 'Produto' : 'Serviço'}
-                    </label>
-                    <select
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                      value={newItem.id}
-                      onChange={(e) => setNewItem({ ...newItem, id: e.target.value })}
-                    >
-                      <option value="">Selecione...</option>
-                      {newItem.type === 'product' ? (
-                        products.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} - R$ {p.price.toFixed(2)}
-                          </option>
-                        ))
-                      ) : (
-                        services.map(s => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} - R$ {s.price.toFixed(2)}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                  <div className="w-16">
-                    <label className="block text-xs text-gray-500 mb-1">Qtd</label>
-                    <input
-                      type="number"
-                      min="1"
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                      value={newItem.quantity}
-                      onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
-                    />
-                  </div>
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                  <input
+                    type="text"
+                    list="customers-list"
+                    name="customer"
+                    required
+                    placeholder="Selecione ou digite o nome"
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                    value={formData.customer}
+                    onChange={handleInputChange}
+                  />
+                  <datalist id="customers-list">
+                    {customersList.map((c: any) => (
+                      <option key={c.id} value={c.name} />
+                    ))}
+                  </datalist>
                   <button
                     type="button"
-                    onClick={handleAddItem}
-                    disabled={!newItem.id}
-                    className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-300"
+                    onClick={() => setIsCustomerModalOpen(true)}
+                    className="absolute right-2 top-2 text-gray-400 hover:text-indigo-600"
+                    title="Novo Cliente Rápido"
                   >
-                    <Plus size={20} />
+                    <UserPlus size={16} />
                   </button>
                 </div>
 
-                {/* Items List */}
-                <div className="bg-gray-50 rounded-md p-2 max-h-40 overflow-y-auto space-y-2">
-                  {saleItems.length === 0 ? (
-                    <p className="text-xs text-gray-500 text-center py-2">Nenhum item adicionado.</p>
-                  ) : (
-                    saleItems.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
-                        <div>
-                          <span className="font-medium">{item.product_name}</span>
-                          <div className="text-gray-500 text-xs">
-                            {item.quantity}x R$ {item.unit_price.toFixed(2)}
+                <div className="border-t border-b py-4 my-2">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Itens da Venda</h4>
+                  <div className="flex gap-2 mb-2 items-end">
+                    <div className="w-24">
+                      <label className="block text-xs text-gray-500 mb-1">Tipo</label>
+                      <select
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        value={newItem.type}
+                        onChange={(e) => setNewItem({ ...newItem, type: e.target.value as 'product' | 'service', id: '' })}
+                      >
+                        <option value="product">Produto</option>
+                        <option value="service">Serviço</option>
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 mb-1">
+                        {newItem.type === 'product' ? 'Produto' : 'Serviço'}
+                      </label>
+                      <select
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        value={newItem.id}
+                        onChange={(e) => setNewItem({ ...newItem, id: e.target.value })}
+                      >
+                        <option value="">Selecione...</option>
+                        {newItem.type === 'product' ? (
+                          products.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} - R$ {p.price.toFixed(2)}
+                            </option>
+                          ))
+                        ) : (
+                          services.map(s => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} - R$ {s.price.toFixed(2)}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                    <div className="w-16">
+                      <label className="block text-xs text-gray-500 mb-1">Qtd</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        value={newItem.quantity}
+                        onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddItem}
+                      disabled={!newItem.id}
+                      className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-300"
+                    >
+                      <Plus size={20} />
+                    </button>
+                  </div>
+
+                  {/* Items List */}
+                  <div className="bg-gray-50 rounded-md p-2 max-h-40 overflow-y-auto space-y-2">
+                    {saleItems.length === 0 ? (
+                      <p className="text-xs text-gray-500 text-center py-2">Nenhum item adicionado.</p>
+                    ) : (
+                      saleItems.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm bg-white p-2 rounded border">
+                          <div>
+                            <span className="font-medium">{item.product_name}</span>
+                            <div className="text-gray-500 text-xs">
+                              {item.quantity}x R$ {item.unit_price.toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">R$ {item.total_price.toFixed(2)}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash size={16} />
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">R$ {item.total_price.toFixed(2)}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(idx)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Desconto</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="discount_value"
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                      value={formData.discount_value}
-                      onChange={handleInputChange}
-                    />
-                    <select
-                      name="discount_type"
-                      className="w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                      value={formData.discount_type}
-                      onChange={handleInputChange}
-                    >
-                      <option value="amount">R$</option>
-                      <option value="percentage">%</option>
-                    </select>
+                      ))
+                    )}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subtotal (R$)</label>
-                  <input
-                    type="number"
-                    readOnly
-                    className="w-full rounded-md border-gray-300 shadow-sm bg-gray-100 sm:text-sm p-2 border cursor-not-allowed"
-                    value={formData.subtotal}
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor Total (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="total"
-                    required
-                    readOnly
-                    className="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 text-indigo-700 font-bold sm:text-sm p-2 border cursor-not-allowed"
-                    value={formData.total}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
-                  <input
-                    type="date"
-                    name="date"
-                    required
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                    value={formData.date}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
-                  <select
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                    value={formData.payment_method}
-                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as any })}
-                  >
-                    <option value="dinheiro">Dinheiro</option>
-                    <option value="cartão">Cartão</option>
-                    <option value="pix">Pix</option>
-                    <option value="promissória">Promissória</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Conditionally show installments for Cartão and Promissória */}
-              {(formData.payment_method === 'cartão' || formData.payment_method === 'promissória') && (
-                <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Parcelas</label>
-                    <select
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                      value={formData.installments}
-                      onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
-                        <option key={n} value={n}>{n}x</option>
-                      ))}
-                    </select>
-                  </div>
-                  {parseInt(formData.installments) > 1 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Entrada (R$)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Desconto</label>
+                    <div className="flex gap-2">
                       <input
                         type="number"
                         step="0.01"
+                        name="discount_value"
                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                        placeholder="0,00"
-                        value={formData.down_payment}
-                        onChange={(e) => setFormData({ ...formData, down_payment: e.target.value })}
+                        value={formData.discount_value}
+                        onChange={handleInputChange}
                       />
+                      <select
+                        name="discount_type"
+                        className="w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        value={formData.discount_type}
+                        onChange={handleInputChange}
+                      >
+                        <option value="amount">R$</option>
+                        <option value="percentage">%</option>
+                      </select>
                     </div>
-                  )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Subtotal (R$)</label>
+                    <input
+                      type="number"
+                      readOnly
+                      className="w-full rounded-md border-gray-300 shadow-sm bg-gray-100 sm:text-sm p-2 border cursor-not-allowed"
+                      value={formData.subtotal}
+                    />
+                  </div>
                 </div>
-              )}
 
-              <div className="pt-4 flex justify-end space-x-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor Total (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="total"
+                      required
+                      readOnly
+                      className="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 text-indigo-700 font-bold sm:text-sm p-2 border cursor-not-allowed"
+                      value={formData.total}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                    <input
+                      type="date"
+                      name="date"
+                      required
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                      value={formData.date}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
+                    <select
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                      value={formData.payment_method}
+                      onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as any })}
+                    >
+                      <option value="dinheiro">Dinheiro</option>
+                      <option value="cartão">Cartão</option>
+                      <option value="pix">Pix</option>
+                      <option value="promissória">Promissória</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Conditionally show installments for Cartão and Promissória */}
+                {(formData.payment_method === 'cartão' || formData.payment_method === 'promissória') && (
+                  <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Parcelas</label>
+                      <select
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                        value={formData.installments}
+                        onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                          <option key={n} value={n}>{n}x</option>
+                        ))}
+                      </select>
+                    </div>
+                    {parseInt(formData.installments) > 1 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Entrada (R$)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                          placeholder="0,00"
+                          value={formData.down_payment}
+                          onChange={(e) => setFormData({ ...formData, down_payment: e.target.value })}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+
+              <div className="p-4 border-t flex justify-end space-x-3 bg-gray-50">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -964,6 +968,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                 </button>
               </div>
             </form>
+
           </div>
         </div >
       )}
@@ -1025,7 +1030,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
       {
         isDetailsModalOpen && selectedSaleDetail && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+
               <div className="flex justify-between items-center p-4 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">
                   Detalhes da Venda {formatId(selectedSaleDetail.display_id)}
@@ -1034,7 +1040,8 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-500">Cliente</p>
@@ -1160,7 +1167,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                   )}
                 </div>
               </div>
-              <div className="p-4 border-t flex justify-end">
+              <div className="p-4 border-t flex justify-end bg-gray-50">
                 <Button
                   onClick={() => setIsDetailsModalOpen(false)}
                   variant="primary"
@@ -1172,8 +1179,9 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
           </div>
         )
       }
-    </div >
+    </div>
   );
 };
+
 
 export default SalesPage;
