@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media print {
+  /* Hide seemingly everything by default */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* But show the print container and its children */
+  .print-container, .print-container * {
+    visibility: visible;
+  }
+
+  /* Position the print container at the top left */
+  .print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+    z-index: 9999;
+  }
+
+  /* Ensure the print area takes full width and allows overflowing if needed */
+  .print-area {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Hide custom scrollbars or other UI elements if they persist */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
