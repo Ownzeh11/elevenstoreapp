@@ -18,12 +18,12 @@ import {
 
 export const USER_NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/products', label: 'Produtos', icon: Package },
-  { path: '/services', label: 'Serviços', icon: Wrench },
-  { path: '/calendar', label: 'Calendário', icon: CalendarDays },
-  { path: '/finance', label: 'Financeiro', icon: DollarSign },
-  { path: '/sales', label: 'Vendas', icon: ShoppingCart },
-  { path: '/customers', label: 'Clientes', icon: User },
+  { path: '/products', label: 'Produtos', icon: Package, module: 'inventory' },
+  { path: '/services', label: 'Serviços', icon: Wrench, module: 'calendar' },
+  { path: '/calendar', label: 'Calendário', icon: CalendarDays, module: 'calendar' },
+  { path: '/finance', label: 'Financeiro', icon: DollarSign, module: 'finance' },
+  { path: '/sales', label: 'Vendas', icon: ShoppingCart, module: 'sales' },
+  { path: '/customers', label: 'Clientes', icon: User, module: 'customers' },
   { path: '/settings', label: 'Configurações', icon: Settings },
 ];
 

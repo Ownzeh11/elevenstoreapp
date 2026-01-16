@@ -10,9 +10,10 @@ interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
   role?: 'USER' | 'SUPER_ADMIN';
+  enabledModules?: string[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePath, onNavigate, isOpen, toggleSidebar, role }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePath, onNavigate, isOpen, toggleSidebar, role, enabledModules = [] }) => {
   return (
     <>
       {/* Mobile Overlay */}
@@ -57,28 +58,30 @@ const Sidebar: React.FC<SidebarProps> = ({ activePath, onNavigate, isOpen, toggl
 
         {/* Navigation Items */}
         <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
-          {(role === 'SUPER_ADMIN' ? ADMIN_NAV_ITEMS : USER_NAV_ITEMS).map((item) => {
-            const isActive = activePath === item.path;
-            const isAdminPath = item.path.startsWith('/admin');
+          {(role === 'SUPER_ADMIN' ? ADMIN_NAV_ITEMS : USER_NAV_ITEMS)
+            .filter(item => !item.module || enabledModules.includes(item.module))
+            .map((item) => {
+              const isActive = activePath === item.path;
+              const isAdminPath = item.path.startsWith('/admin');
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => {
-                  onNavigate(item.path);
-                  if (isOpen) toggleSidebar();
-                }}
-                className={`flex items-center px-4 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isActive
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => {
+                    onNavigate(item.path);
+                    if (isOpen) toggleSidebar();
+                  }}
+                  className={`flex items-center px-4 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isActive
                     ? (isAdminPath ? 'bg-indigo-50 text-indigo-700 font-medium' : 'bg-blue-50 text-blue-700 font-medium')
                     : ''
-                  }`}
-              >
-                <item.icon className={`h-5 w-5 mr-3 ${isActive ? (isAdminPath ? 'text-indigo-600' : 'text-blue-600') : 'text-gray-400'}`} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+                    }`}
+                >
+                  <item.icon className={`h-5 w-5 mr-3 ${isActive ? (isAdminPath ? 'text-indigo-600' : 'text-blue-600') : 'text-gray-400'}`} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
         </nav>
 
         <div className="border-t border-gray-200 p-4">

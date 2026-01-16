@@ -114,6 +114,12 @@ const AppContent: React.FC = () => {
     return navItem ? navItem.label : 'ElevenStore';
   };
 
+  const isModuleEnabled = (path: string) => {
+    const navItem = USER_NAV_ITEMS.find(item => item.path === path);
+    if (!navItem || !navItem.module) return true;
+    return company?.enabled_modules?.includes(navItem.module);
+  };
+
   const handleNavigate = (path: string) => {
     setActivePath(path);
   };
@@ -213,7 +219,14 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex w-full min-h-screen bg-gray-50 flex-col overflow-hidden">
       <div className="flex flex-1 overflow-hidden relative">
-        <Sidebar activePath={activePath} onNavigate={handleNavigate} isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} role={profile?.role} />
+        <Sidebar
+          activePath={activePath}
+          onNavigate={handleNavigate}
+          isOpen={isSidebarOpen}
+          toggleSidebar={toggleSidebar}
+          role={profile?.role}
+          enabledModules={company?.enabled_modules || []}
+        />
 
         {/* Main content area */}
         <div className="flex-1 flex flex-col md:ml-64 overflow-hidden relative"> {/* Adjust margin for sidebar */}
@@ -221,13 +234,13 @@ const AppContent: React.FC = () => {
             title={getPageTitle(activePath)}
             onServiceClick={
               !isSuperAdmin && (activePath === '/' || activePath === '/finance' || activePath === '/sales') &&
-                (company?.status === 'active')
+                (company?.status === 'active') && isModuleEnabled('/services')
                 ? handleLaunchService
                 : undefined
             }
             onSaleClick={
               !isSuperAdmin && (activePath === '/' || activePath === '/finance' || activePath === '/sales') &&
-                (company?.status === 'active')
+                (company?.status === 'active') && isModuleEnabled('/sales')
                 ? handleLaunchSale
                 : undefined
             }
@@ -243,13 +256,13 @@ const AppContent: React.FC = () => {
               {/* Company Level Routes (Hidden from Super Admin) */}
               {!isSuperAdmin && (
                 <>
-                  <Route path="/" element={<DashboardPage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} />} />
-                  <Route path="/products" element={<ProductsPage />} />
-                  <Route path="/services" element={<ServicesPage onSaleClick={handleLaunchSale} onNewServiceClick={handleNewService} />} />
-                  <Route path="/calendar" element={<CalendarPage onNewAppointmentClick={handleNewAppointment} />} />
-                  <Route path="/finance" element={<FinancePage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} />} />
-                  <Route path="/sales" element={<SalesPage onSaleClick={handleLaunchSale} />} />
-                  <Route path="/customers" element={<CustomersPage />} />
+                  <Route path="/" element={<DashboardPage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} enabledModules={company?.enabled_modules || []} />} />
+                  <Route path="/products" element={isModuleEnabled('/products') ? <ProductsPage /> : <Navigate to="/" replace />} />
+                  <Route path="/services" element={isModuleEnabled('/services') ? <ServicesPage onSaleClick={handleLaunchSale} onNewServiceClick={handleNewService} /> : <Navigate to="/" replace />} />
+                  <Route path="/calendar" element={isModuleEnabled('/calendar') ? <CalendarPage onNewAppointmentClick={handleNewAppointment} /> : <Navigate to="/" replace />} />
+                  <Route path="/finance" element={isModuleEnabled('/finance') ? <FinancePage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} /> : <Navigate to="/" replace />} />
+                  <Route path="/sales" element={isModuleEnabled('/sales') ? <SalesPage onSaleClick={handleLaunchSale} /> : <Navigate to="/" replace />} />
+                  <Route path="/customers" element={isModuleEnabled('/customers') ? <CustomersPage /> : <Navigate to="/" replace />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </>
               )}

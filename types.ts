@@ -89,6 +89,7 @@ export interface NavItem {
   path: string;
   label: string;
   icon: React.ElementType; // Icon component from lucide-react
+  module?: string;
 }
 
 export interface SummaryCardData {

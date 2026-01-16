@@ -17,9 +17,10 @@ import { supabase } from '../utils/supabaseClient';
 interface DashboardPageProps {
   onServiceClick: () => void;
   onSaleClick: () => void;
+  enabledModules: string[];
 }
 
-const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleClick }) => {
+const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleClick, enabledModules }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
@@ -103,7 +104,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
         });
       });
 
-      setActivities(combinedActivities);
+      setActivities(combinedActivities.filter(activity => {
+        if (activity.type === 'Serviço') return enabledModules.includes('calendar');
+        if (activity.type === 'Venda') return enabledModules.includes('sales');
+        if (activity.type === 'Cliente') return enabledModules.includes('customers');
+        return true;
+      }));
 
       // 6. Calculate Stats
       const getLocalDateString = (date = new Date()) => {
@@ -162,13 +168,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
     }
   };
 
-  const summaryCards: SummaryCardData[] = [
+  const summaryCards = [
     {
       title: 'Saldo em Caixa',
       value: `R$ ${stats.cashBalance.toFixed(2).replace('.', ',')}`,
       change: 'Saldo real-time',
       trend: stats.cashBalance >= 0 ? 'up' : 'down',
       icon: DollarSign,
+      module: 'finance'
     },
     {
       title: 'Vendas Hoje',
@@ -176,6 +183,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
       change: 'Somente produtos',
       trend: 'neutral',
       icon: ShoppingCart,
+      module: 'sales'
     },
     {
       title: 'Serviços Hoje',
@@ -183,6 +191,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
       change: 'Somente serviços',
       trend: 'neutral',
       icon: Wrench,
+      module: 'calendar'
     },
     {
       title: 'Despesas Hoje',
@@ -190,8 +199,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ onServiceClick, onSaleCli
       change: 'Saídas totais',
       trend: 'down',
       icon: ArrowDown,
+      module: 'finance'
     },
-  ];
+  ].filter(card => !card.module || enabledModules.includes(card.module));
 
   const renderActivityIcon = (activity: RecentActivity) => {
     switch (activity.type) {
