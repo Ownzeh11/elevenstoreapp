@@ -23,6 +23,8 @@ const FinancePage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [dbCategories, setDbCategories] = useState<any[]>([]);
 
 
@@ -262,18 +264,44 @@ const FinancePage: React.FC = () => {
     const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === '' || t.category === categoryFilter;
 
+    // Date Filtering
+    const txDate = new Date(t.due_date || t.created_at).toISOString().split('T')[0];
+    const matchesStart = startDate === '' || txDate >= startDate;
+    const matchesEnd = endDate === '' || txDate <= endDate;
+
     if (activeTab === 'cashflow') {
-      return matchesSearch && matchesCategory && (t.status === 'paid' || !t.status);
+      return matchesSearch && matchesCategory && matchesStart && matchesEnd && (t.status === 'paid' || !t.status);
     } else if (activeTab === 'receivables') {
       // For receivables, show pending income that hasn't been reversed
       const isReversed = transactions.some(rev =>
         rev.reference_id === t.id &&
         rev.reference_type === 'reversal'
       );
-      return matchesSearch && matchesCategory && t.status === 'pending' && t.type === 'income' && !isReversed && t.reference_type !== 'reversal';
+      return matchesSearch && matchesCategory && matchesStart && matchesEnd && t.status === 'pending' && t.type === 'income' && !isReversed && t.reference_type !== 'reversal';
     }
     return false;
   });
+
+  // Calculate totals for the report based on FILTERED transactions
+  const reportIncome = filteredTransactions
+    .filter(t => t.type === 'income' && t.reference_type !== 'reversal')
+    .reduce((acc, t) => acc + Number(t.amount), 0)
+    - filteredTransactions
+      .filter(t => t.type === 'expense' && t.reference_type === 'reversal')
+      .reduce((acc, t) => acc + Number(t.amount), 0);
+
+  const reportExpense = filteredTransactions
+    .filter(t => t.type === 'expense' && t.reference_type !== 'reversal')
+    .reduce((acc, t) => acc + Number(t.amount), 0)
+    - filteredTransactions
+      .filter(t => t.type === 'income' && t.reference_type === 'reversal')
+      .reduce((acc, t) => acc + Number(t.amount), 0);
+
+  // Note: For the report balance, we might want just (Income - Expense) of the LISTED transactions.
+  // Global cash balance is usually "all time", but if the user filters by date, they likely want the balance variation in that period
+  // OR the system's actual balance. The request says "valores calculados para o resultado do filtro".
+  // So we will show the "Saldo do Período" (Balance of the Period) instead of total cash balance.
+  const reportBalance = reportIncome - reportExpense;
 
   // Use ONLY categories from DB for filters and suggestions
   const allCategoryNames = dbCategories.map(c => c.name).sort();
@@ -439,6 +467,20 @@ const FinancePage: React.FC = () => {
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full sm:w-auto"
+                    title="Data Inicial"
+                  />
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full sm:w-auto"
+                    title="Data Final"
+                  />
                   <Input
                     id="search"
                     type="search"
@@ -622,17 +664,17 @@ const FinancePage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4 mb-8 print:border print:p-4 print:rounded-lg">
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Receitas (Confirmadas)</p>
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(totalIncome)}</p>
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Receitas (Filtradas)</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(reportIncome)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Despesas (Pagas)</p>
-                  <p className="text-2xl font-bold text-red-600">{formatCurrency(totalExpense)}</p>
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Despesas (Filtradas)</p>
+                  <p className="text-2xl font-bold text-red-600">{formatCurrency(reportExpense)}</p>
                 </div>
                 <div className="col-span-2 pt-4 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo Final</p>
-                  <p className={`text-3xl font-bold ${cashBalance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-                    {formatCurrency(cashBalance)}
+                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo do Período/Filtro</p>
+                  <p className={`text-3xl font-bold ${reportBalance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                    {formatCurrency(reportBalance)}
                   </p>
                 </div>
               </div>
