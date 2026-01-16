@@ -1032,130 +1032,132 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
 
-              <div className="flex justify-between items-center p-4 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Detalhes da Venda {formatId(selectedSaleDetail.display_id)}
+              <div className="flex justify-between items-center p-3 border-b bg-gray-50/50">
+                <h3 className="text-base font-bold text-gray-900">
+                  Venda {formatId(selectedSaleDetail.display_id)}
                 </h3>
-                <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                   <X className="h-5 w-5" />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex justify-between items-start gap-4">
                   <div>
-                    <p className="text-gray-500">Cliente</p>
-                    <p className="font-semibold">{selectedSaleDetail.customer}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Cliente</p>
+                    <p className="text-sm font-semibold text-gray-900">{selectedSaleDetail.customer}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-500">Data</p>
-                    <p className="font-semibold">{formatDateDisplay(selectedSaleDetail.date)}</p>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Data</p>
+                    <p className="text-sm font-semibold text-gray-900">{formatDateDisplay(selectedSaleDetail.date)}</p>
                   </div>
                 </div>
 
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 border-b">
+                <div className="border border-gray-100 rounded-lg overflow-hidden shadow-sm">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                       <tr>
                         <th className="px-3 py-2">Item</th>
-                        <th className="px-3 py-2 text-center">Qtd</th>
+                        <th className="px-3 py-2 text-center w-12">Qtd</th>
                         <th className="px-3 py-2 text-right">Preço</th>
                         <th className="px-3 py-2 text-right">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="divide-y divide-gray-50">
                       {detailsLoading ? (
                         <tr>
-                          <td colSpan={4} className="px-3 py-8 text-center text-gray-500">
+                          <td colSpan={4} className="px-3 py-6 text-center text-gray-400 italic">
                             Carregando itens...
                           </td>
                         </tr>
                       ) : selectedSaleItems.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-3 py-4 text-center text-gray-500">
+                          <td colSpan={4} className="px-3 py-4 text-center text-gray-400">
                             Nenhum item encontrado.
                           </td>
                         </tr>
                       ) : (
                         selectedSaleItems.map((item, idx) => (
-                          <tr key={idx}>
-                            <td className="px-3 py-2 font-medium">
+                          <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-3 py-1.5 font-medium text-gray-700">
                               {item.product?.name || item.service?.name || 'Item desconhecido'}
                             </td>
-                            <td className="px-3 py-2 text-center">{item.quantity}</td>
-                            <td className="px-3 py-2 text-right">R$ {item.unit_price.toFixed(2)}</td>
-                            <td className="px-3 py-2 text-right font-semibold">R$ {item.total_price.toFixed(2)}</td>
+                            <td className="px-3 py-1.5 text-center text-gray-500">{item.quantity}</td>
+                            <td className="px-3 py-1.5 text-right text-gray-500">R$ {item.unit_price.toFixed(2)}</td>
+                            <td className="px-3 py-1.5 text-right font-semibold text-gray-900">R$ {item.total_price.toFixed(2)}</td>
                           </tr>
                         ))
                       )}
                     </tbody>
                     {!detailsLoading && (
-                      <tfoot className="bg-gray-50 border-t">
+                      <tfoot className="bg-gray-50/50 border-t border-gray-100 text-[11px]">
                         {selectedSaleDetail.discount_value > 0 && (
                           <>
-                            <tr className="text-gray-600">
-                              <td colSpan={3} className="px-3 py-1 text-right italic font-normal">Subtotal:</td>
-                              <td className="px-3 py-1 text-right italic font-normal">R$ {(selectedSaleDetail.total + (selectedSaleDetail.discount_type === 'percentage' ? (selectedSaleDetail.total / (1 - selectedSaleDetail.discount_value / 100)) * (selectedSaleDetail.discount_value / 100) : selectedSaleDetail.discount_value)).toFixed(2)}</td>
+                            <tr className="text-gray-500">
+                              <td colSpan={3} className="px-3 py-1 text-right">Subtotal:</td>
+                              <td className="px-3 py-1 text-right">R$ {(selectedSaleDetail.total + (selectedSaleDetail.discount_type === 'percentage' ? (selectedSaleDetail.total / (1 - selectedSaleDetail.discount_value / 100)) * (selectedSaleDetail.discount_value / 100) : selectedSaleDetail.discount_value)).toFixed(2)}</td>
                             </tr>
-                            <tr className="text-red-600">
-                              <td colSpan={3} className="px-3 py-1 text-right italic font-normal">Desconto ({selectedSaleDetail.discount_type === 'percentage' ? `${selectedSaleDetail.discount_value}%` : `R$ ${selectedSaleDetail.discount_value.toFixed(2)}`}):</td>
-                              <td className="px-3 py-1 text-right italic font-normal">- R$ {(selectedSaleDetail.discount_type === 'percentage' ? (selectedSaleDetail.total / (1 - selectedSaleDetail.discount_value / 100)) * (selectedSaleDetail.discount_value / 100) : selectedSaleDetail.discount_value).toFixed(2)}</td>
+                            <tr className="text-red-500">
+                              <td colSpan={3} className="px-3 py-1 text-right">Desconto ({selectedSaleDetail.discount_type === 'percentage' ? `${selectedSaleDetail.discount_value}%` : `R$ ${selectedSaleDetail.discount_value.toFixed(2)}`}):</td>
+                              <td className="px-3 py-1 text-right">- R$ {(selectedSaleDetail.discount_type === 'percentage' ? (selectedSaleDetail.total / (1 - selectedSaleDetail.discount_value / 100)) * (selectedSaleDetail.discount_value / 100) : selectedSaleDetail.discount_value).toFixed(2)}</td>
                             </tr>
                           </>
                         )}
-                        <tr className="font-bold text-gray-900 border-t">
-                          <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
-                          <td className="px-3 py-2 text-right">R$ {selectedSaleDetail.total.toFixed(2)}</td>
+                        <tr className="font-bold text-indigo-700 bg-indigo-50/30 text-xs border-t border-indigo-100">
+                          <td colSpan={3} className="px-3 py-2 text-right uppercase tracking-wider">Total:</td>
+                          <td className="px-3 py-2 text-right text-sm">R$ {selectedSaleDetail.total.toFixed(2)}</td>
                         </tr>
                       </tfoot>
                     )}
                   </table>
                 </div>
 
-                <div className="mt-4 pt-4 border-t px-4">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="pt-2">
+                  <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Forma de Pagamento</p>
-                      <p className="text-sm font-medium text-gray-900 capitalize flex items-center">
-                        <span className="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>
+                      <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-0.5">Pagamento</p>
+                      <p className="text-xs font-semibold text-gray-700 capitalize flex items-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5"></span>
                         {selectedSaleDetail.payment_method}
                       </p>
                     </div>
                     {selectedSaleDetail.installments > 1 && (
-                      <div>
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Plano</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {selectedSaleDetail.installments}x {selectedSaleDetail.down_payment ? `(com entrada de R$ ${selectedSaleDetail.down_payment.toFixed(2)})` : ''}
+                      <div className="text-right">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-0.5">Plano</p>
+                        <p className="text-xs font-semibold text-gray-700">
+                          {selectedSaleDetail.installments}x {selectedSaleDetail.down_payment ? `(entrada R$ ${selectedSaleDetail.down_payment.toFixed(2)})` : ''}
                         </p>
                       </div>
                     )}
                   </div>
 
                   {saleInstallments.length > 0 && (
-                    <div className="mt-4 bg-gray-50 rounded-lg p-3">
-                      <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center">
+                    <div className="bg-gray-50/50 rounded-lg p-2.5 border border-gray-100">
+                      <h4 className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center">
                         <Calendar className="h-3 w-3 mr-1 text-indigo-500" />
                         Cronograma de Recebimento
                       </h4>
-                      <div className="max-h-40 overflow-y-auto pr-1">
-                        <table className="w-full text-[11px] text-left">
+                      <div className="max-h-32 overflow-y-auto pr-1">
+                        <table className="w-full text-[10px] text-left">
                           <thead>
-                            <tr className="text-gray-400 font-normal border-b">
-                              <th className="py-1">Vencimento</th>
+                            <tr className="text-gray-400 font-bold border-b border-gray-100 uppercase tracking-tighter">
+                              <th className="py-1">Data</th>
                               <th className="py-1">Descrição</th>
                               <th className="py-1 text-right">Valor</th>
-                              <th className="py-2 text-center">Status</th>
+                              <th className="py-1 text-center">Sta</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-gray-100">
+                          <tbody className="divide-y divide-gray-50">
                             {saleInstallments.map((inst, idx) => (
-                              <tr key={inst.id} className="text-gray-600">
-                                <td className="py-2 font-medium">{inst.due_date ? new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</td>
-                                <td className="py-2 truncate max-w-[80px]" title={inst.description}>{inst.description.split(')')[1] || inst.description.split('-')[0]}</td>
-                                <td className="py-2 text-right font-semibold text-gray-900">R$ {inst.amount.toFixed(2)}</td>
-                                <td className="py-2 text-center">
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${inst.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                                    {inst.status === 'paid' ? 'Pago' : 'Pendente'}
+                              <tr key={inst.id} className="text-gray-600 hover:bg-white transition-colors">
+                                <td className="py-1.5 font-medium">{inst.due_date ? new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</td>
+                                <td className="py-1.5 truncate max-w-[90px]" title={inst.description}>
+                                  {inst.description.includes('(') ? inst.description.split(')')[1].trim() : inst.description}
+                                </td>
+                                <td className="py-1.5 text-right font-bold text-gray-900">R$ {inst.amount.toFixed(2)}</td>
+                                <td className="py-1.5 text-center">
+                                  <span className={`px-1 py-0.5 rounded-[3px] text-[8px] font-bold uppercase ${inst.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {inst.status === 'paid' ? 'Ok' : '...'}
                                   </span>
                                 </td>
                               </tr>
@@ -1167,10 +1169,11 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                   )}
                 </div>
               </div>
-              <div className="p-4 border-t flex justify-end bg-gray-50">
+              <div className="p-3 border-t flex justify-end bg-gray-50/50">
                 <Button
                   onClick={() => setIsDetailsModalOpen(false)}
                   variant="primary"
+                  size="sm"
                 >
                   Fechar
                 </Button>

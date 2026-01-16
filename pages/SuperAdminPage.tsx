@@ -35,6 +35,7 @@ const SuperAdminPage: React.FC = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showUsersModal, setShowUsersModal] = useState(false);
+    const [showPurgeModal, setShowPurgeModal] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
     const [newCompanyName, setNewCompanyName] = useState('');
     const [editFormData, setEditFormData] = useState({ name: '', plan: '', expires_at: '' });
@@ -45,6 +46,8 @@ const SuperAdminPage: React.FC = () => {
     const [isAddingUser, setIsAddingUser] = useState(false);
     const [isCreatingCompany, setIsCreatingCompany] = useState(false);
     const [isUpdatingCompany, setIsUpdatingCompany] = useState(false);
+    const [isPurging, setIsPurging] = useState(false);
+    const [purgeConfirmationName, setPurgeConfirmationName] = useState('');
     const [editAdminData, setEditAdminData] = useState({ email: '', password: '' });
     const [stats, setStats] = useState({ total: 0, active: 0, suspended: 0 });
 
@@ -105,7 +108,6 @@ const SuperAdminPage: React.FC = () => {
 
                 if (fnError) {
                     let errorMsg = fnError.message;
-                    // Try to get specific error from our Edge Function catch block
                     if (fnError.details?.error) {
                         errorMsg = fnError.details.error;
                     }
@@ -119,7 +121,6 @@ const SuperAdminPage: React.FC = () => {
             setNewCompanyName('');
             setCreateAdminData({ email: '', password: '' });
 
-            // Refresh stats
             fetchCompanies();
         } catch (error) {
             console.error('Error creating company:', error);
@@ -168,7 +169,6 @@ const SuperAdminPage: React.FC = () => {
             setShowEditModal(false);
             setEditAdminData({ email: '', password: '' });
 
-            // Refresh stats in case of changes
             fetchCompanies();
         } catch (error) {
             console.error('Error updating company:', error);
@@ -178,21 +178,44 @@ const SuperAdminPage: React.FC = () => {
         }
     };
 
-    const handleDeleteCompany = async (id: string) => {
-        if (!confirm('Tem certeza que deseja deletar esta empresa e todos os seus dados? Esta ação é irreversível.')) return;
-        try {
-            const { error } = await supabase
-                .from('companies')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-            setCompanies(companies.filter(c => c.id !== id));
-            fetchCompanies();
-        } catch (error) {
-            console.error('Error deleting company:', error);
-            alert('Erro ao deletar empresa. Pode haver dados vinculados que impedem a exclusão direta.');
+    const handlePurgeCompany = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedCompany) return;
+        if (purgeConfirmationName !== selectedCompany.name) {
+            alert('O nome da empresa digitado não coincide.');
+            return;
         }
+
+        try {
+            setIsPurging(true);
+            const { data, error: fnError } = await supabase.functions.invoke('manage-company-admin', {
+                body: {
+                    action: 'purge_company',
+                    company_id: selectedCompany.id
+                }
+            });
+
+            if (fnError) throw fnError;
+            if (data?.error) throw new Error(data.error);
+
+            setCompanies(companies.filter(c => c.id !== selectedCompany.id));
+            setShowPurgeModal(false);
+            setPurgeConfirmationName('');
+            setSelectedCompany(null);
+            fetchCompanies();
+            alert('Empresa e todos os seus dados foram excluídos com sucesso.');
+        } catch (error: any) {
+            console.error('Error purging company:', error);
+            alert('Erro crítico ao expurgar empresa: ' + (error.message || 'Erro desconhecido'));
+        } finally {
+            setIsPurging(false);
+        }
+    };
+
+    const handleDeleteCompanyTrigger = (company: Company) => {
+        setSelectedCompany(company);
+        setPurgeConfirmationName('');
+        setShowPurgeModal(true);
     };
 
     const fetchCompanyUsers = async (companyId: string) => {
@@ -223,7 +246,6 @@ const SuperAdminPage: React.FC = () => {
         if (!selectedCompany) return;
         setIsAddingUser(true);
         try {
-            // Use Edge Function to create/link user
             const { error: fnError } = await supabase.functions.invoke('manage-company-admin', {
                 body: {
                     email: addUserFormData.email,
@@ -254,7 +276,7 @@ const SuperAdminPage: React.FC = () => {
         if (!confirm('ATENÇÃO: Isso excluirá PERMANENTEMENTE as credenciais de acesso deste usuário. Confirmar?')) return;
 
         try {
-            setIsAddingUser(true); // Re-use indicator for loading
+            setIsAddingUser(true);
             const { error: fnError } = await supabase.functions.invoke('manage-company-admin', {
                 body: {
                     action: 'delete_user',
@@ -264,8 +286,7 @@ const SuperAdminPage: React.FC = () => {
 
             if (fnError) throw fnError;
 
-            setCompanyUsers([]);
-            setAddUserFormData({ email: '', role: 'owner', password: '' });
+            fetchCompanyUsers(selectedCompany.id);
         } catch (error: any) {
             console.error('Error removing user:', error);
             alert('Erro ao excluir usuário: ' + (error.message || 'Erro desconhecido'));
@@ -274,20 +295,17 @@ const SuperAdminPage: React.FC = () => {
         }
     };
 
-    const handleUpdateUserRole = async (userId: string, role: string) => {
-        if (!selectedCompany) return;
+    const updateCompanyStatus = async (id: string, status: Company['status']) => {
         try {
             const { error } = await supabase
-                .from('company_users')
-                .update({ role })
-                .eq('company_id', selectedCompany.id)
-                .eq('user_id', userId);
+                .from('companies')
+                .update({ status })
+                .eq('id', id);
 
             if (error) throw error;
-            setCompanyUsers(companyUsers.map(cu => cu.user_id === userId ? { ...cu, role } : cu));
+            setCompanies(companies.map(c => c.id === id ? { ...c, status } : c));
         } catch (error) {
-            console.error('Error updating user role:', error);
-            alert('Erro ao atualizar cargo.');
+            console.error('Error updating status:', error);
         }
     };
 
@@ -305,30 +323,8 @@ const SuperAdminPage: React.FC = () => {
     const openUsersModal = (company: Company) => {
         setSelectedCompany(company);
         setAddUserFormData({ email: '', role: 'owner', password: '' });
-        fetchCompanyUsers(company.id).then((users: any) => {
-            if (users && users.length > 0) {
-                setAddUserFormData({
-                    email: users[0].profile?.email || '',
-                    role: 'owner',
-                    password: ''
-                });
-            }
-        });
+        fetchCompanyUsers(company.id);
         setShowUsersModal(true);
-    };
-
-    const updateCompanyStatus = async (id: string, status: Company['status']) => {
-        try {
-            const { error } = await supabase
-                .from('companies')
-                .update({ status })
-                .eq('id', id);
-
-            if (error) throw error;
-            setCompanies(companies.map(c => c.id === id ? { ...c, status } : c));
-        } catch (error) {
-            console.error('Error updating status:', error);
-        }
     };
 
     const filteredCompanies = companies.filter(c =>
@@ -434,9 +430,9 @@ const SuperAdminPage: React.FC = () => {
                         <UserCog className="w-5 h-5" />
                     </button>
                     <button
-                        onClick={() => handleDeleteCompany(item.id)}
+                        onClick={() => handleDeleteCompanyTrigger(item)}
                         className="p-1.5 text-red-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Deletar Empresa"
+                        title="Expurgar Empresa (Irreversível)"
                     >
                         <Trash className="w-5 h-5" />
                     </button>
@@ -461,7 +457,6 @@ const SuperAdminPage: React.FC = () => {
                 </Button>
             </div>
 
-            {/* Quick Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <Card className="flex items-center p-6 bg-gradient-to-br from-indigo-50 to-blue-50 border-none shadow-sm">
                     <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm mr-4">
@@ -492,7 +487,6 @@ const SuperAdminPage: React.FC = () => {
                 </Card>
             </div>
 
-            {/* Filter & Table */}
             <Card className="overflow-hidden border-gray-100 shadow-sm">
                 <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 className="text-lg font-bold text-gray-900">Listagem de Clientes</h2>
@@ -521,7 +515,7 @@ const SuperAdminPage: React.FC = () => {
                 )}
             </Card>
 
-            {/* Create Company Modal (Simplified) */}
+            {/* Modals */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <Card className="w-full max-w-md p-6 shadow-2xl scale-100 animate-in fade-in zoom-in duration-200">
@@ -539,7 +533,6 @@ const SuperAdminPage: React.FC = () => {
                                 placeholder="Ex: ElevenStore São Paulo"
                                 required
                             />
-
                             <div className="pt-4 border-t border-gray-100">
                                 <div className="flex items-center space-x-2 text-indigo-600 mb-4">
                                     <Lock className="w-4 h-4" />
@@ -562,31 +555,22 @@ const SuperAdminPage: React.FC = () => {
                                         placeholder="••••••••"
                                         required
                                     />
-                                    <p className="text-[10px] text-gray-500 italic">
-                                        Este usuário será criado automaticamente e vinculado como Dono da empresa.
-                                    </p>
                                 </div>
                             </div>
-
-                            <div className="pt-4 flex justify-end space-x-3">
-                                <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)} disabled={isCreatingCompany}>
-                                    Cancelar
-                                </Button>
-                                <Button type="submit" disabled={isCreatingCompany}>
-                                    {isCreatingCompany ? 'Criando...' : 'Criar Empresa & Admin'}
-                                </Button>
+                            <div className="pt-4 flex justify-end space-x-2">
+                                <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>Cancelar</Button>
+                                <Button type="submit" disabled={isCreatingCompany}>{isCreatingCompany ? 'Criando...' : 'Criar Empresa'}</Button>
                             </div>
                         </form>
                     </Card>
                 </div>
             )}
 
-            {/* Edit Company Modal */}
             {showEditModal && selectedCompany && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <Card className="w-full max-w-md p-6 shadow-2xl">
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-gray-900">Editar Detalhes</h3>
+                            <h3 className="text-xl font-bold text-gray-900">Editar Empresa</h3>
                             <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
                                 <X className="w-6 h-6" />
                             </button>
@@ -598,157 +582,173 @@ const SuperAdminPage: React.FC = () => {
                                 onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                                 required
                             />
-                            <div className="space-y-1">
-                                <label className="text-sm font-semibold text-gray-700">Plano</label>
-                                <select
-                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
-                                    value={editFormData.plan}
-                                    onChange={(e) => setEditFormData({ ...editFormData, plan: e.target.value })}
-                                >
-                                    <option value="free">Free</option>
-                                    <option value="standard">Standard</option>
-                                    <option value="premium">Premium</option>
-                                </select>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-semibold text-gray-700">Plano</label>
+                                    <select
+                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                        value={editFormData.plan}
+                                        onChange={(e) => setEditFormData({ ...editFormData, plan: e.target.value })}
+                                    >
+                                        <option value="free">Free</option>
+                                        <option value="standard">Standard</option>
+                                        <option value="premium">Premium</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-semibold text-gray-700">Validade</label>
+                                    <input
+                                        type="date"
+                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                        value={editFormData.expires_at}
+                                        onChange={(e) => setEditFormData({ ...editFormData, expires_at: e.target.value })}
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-sm font-semibold text-gray-700">Data de Expiração</label>
-                                <input
-                                    type="date"
-                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
-                                    value={editFormData.expires_at}
-                                    onChange={(e) => setEditFormData({ ...editFormData, expires_at: e.target.value })}
-                                />
-                            </div>
-
                             <div className="pt-4 border-t border-gray-100">
                                 <div className="flex items-center space-x-2 text-indigo-600 mb-4">
                                     <Key className="w-4 h-4" />
-                                    <span className="text-xs font-bold uppercase tracking-widest">Gestão de Administrador</span>
+                                    <span className="text-xs font-bold uppercase tracking-widest">Mudar Admin (Opcional)</span>
                                 </div>
                                 <div className="space-y-3">
                                     <Input
-                                        label="Alterar Email do Admin"
+                                        label="Novo Email"
                                         type="email"
                                         value={editAdminData.email}
                                         onChange={(e) => setEditAdminData({ ...editAdminData, email: e.target.value })}
-                                        placeholder="Novo email (opcional)"
+                                        placeholder="admin@empresa.com"
                                     />
                                     <Input
-                                        label="Resetar Senha"
+                                        label="Nova Senha"
                                         type="password"
                                         value={editAdminData.password}
                                         onChange={(e) => setEditAdminData({ ...editAdminData, password: e.target.value })}
-                                        placeholder="Nova senha (opcional)"
+                                        placeholder="••••••••"
                                     />
-                                    <p className="text-[10px] text-gray-500 italic">
-                                        Preencha apenas se desejar alterar o email ou resetar a senha do administrador principal.
-                                    </p>
                                 </div>
                             </div>
-
-                            <div className="pt-4 flex justify-end space-x-3">
-                                <Button type="button" variant="outline" onClick={() => setShowEditModal(false)} disabled={isUpdatingCompany}>
-                                    Cancelar
-                                </Button>
-                                <Button type="submit" disabled={isUpdatingCompany}>
-                                    {isUpdatingCompany ? 'Salvando...' : 'Salvar Alterações'}
-                                </Button>
+                            <div className="pt-4 flex justify-end space-x-2">
+                                <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>Cancelar</Button>
+                                <Button type="submit" disabled={isUpdatingCompany}>{isUpdatingCompany ? 'Salvando...' : 'Salvar Changes'}</Button>
                             </div>
                         </form>
                     </Card>
                 </div>
             )}
 
-            {/* User Management Modal (Single User per Company) */}
             {showUsersModal && selectedCompany && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <Card className="w-full max-w-md p-6 shadow-2xl">
                         <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900">Gerenciar Usuário</h3>
-                                <p className="text-sm text-gray-500">{selectedCompany.name}</p>
-                            </div>
-                            <button onClick={() => setShowUsersModal(false)} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors">
+                            <h3 className="text-xl font-bold text-gray-900">Gerenciar Usuários</h3>
+                            <button onClick={() => setShowUsersModal(false)} className="text-gray-400 hover:text-gray-600">
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
 
                         {loadingUsers ? (
-                            <div className="flex justify-center py-12">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                            </div>
+                            <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
                         ) : (
-                            <div className="space-y-6">
-                                {companyUsers.length > 0 ? (
-                                    <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 mb-4">
-                                        <div className="flex items-center space-x-3 mb-4">
-                                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                <span className="text-indigo-600 font-extrabold">{(companyUsers[0].profile?.email || 'U').substring(0, 1).toUpperCase()}</span>
+                            <div className="space-y-4">
+                                {companyUsers.map((u, idx) => (
+                                    <div key={idx} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
+                                                {u.profile?.email?.substring(0, 1).toUpperCase() || 'U'}
                                             </div>
                                             <div>
-                                                <p className="text-sm font-bold text-gray-900">{companyUsers[0].profile?.email || 'Usuário s/ Email'}</p>
-                                                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Usuário Verificado</span>
+                                                <p className="text-sm font-bold text-gray-900">{u.profile?.email}</p>
+                                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">{u.role}</p>
                                             </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center space-x-2 text-yellow-600 bg-yellow-50 p-3 rounded-xl border border-yellow-100 mb-4">
-                                        <AlertCircle className="w-4 h-4" />
-                                        <p className="text-xs font-medium">Nenhum usuário vinculado a esta empresa.</p>
-                                    </div>
-                                )}
-
-                                <form onSubmit={handleAddUser} className="space-y-4">
-                                    <div className="space-y-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
-                                                {companyUsers.length > 0 ? 'Mudar Email de Login' : 'Email de Acesso'}
-                                            </label>
-                                            <Input
-                                                value={addUserFormData.email}
-                                                onChange={(e) => setAddUserFormData({ ...addUserFormData, email: e.target.value })}
-                                                placeholder="usuario@email.com"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
-                                                {companyUsers.length > 0 ? 'Nova Senha (deixe vazio se não quiser mudar)' : 'Senha de Acesso'}
-                                            </label>
-                                            <Input
-                                                type="password"
-                                                value={addUserFormData.password}
-                                                onChange={(e) => setAddUserFormData({ ...addUserFormData, password: e.target.value })}
-                                                placeholder="••••••••"
-                                                required={companyUsers.length === 0}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-2">
-                                        <Button type="submit" disabled={isAddingUser} className="w-full h-11 shadow-lg shadow-indigo-200">
-                                            {isAddingUser ? 'Aguarde...' : companyUsers.length > 0 ? 'Salvar Novas Credenciais' : 'Criar e Vincular Usuário'}
-                                        </Button>
-                                    </div>
-
-                                    {companyUsers.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveUser(companyUsers[0].user_id)}
-                                            className="w-full text-center text-xs text-red-500 hover:text-red-700 font-bold py-2 transition-colors uppercase tracking-widest mt-2"
-                                        >
-                                            Excluir Usuário da Autenticação
+                                        <button onClick={() => handleRemoveUser(u.user_id)} className="p-1 text-red-500 hover:bg-red-50 rounded-lg">
+                                            <Trash className="w-4 h-4" />
                                         </button>
-                                    )}
-                                </form>
+                                    </div>
+                                ))}
+
+                                <div className="pt-4 border-t mt-4">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Adicionar Novo Usuário</p>
+                                    <form onSubmit={handleAddUser} className="space-y-3">
+                                        <Input
+                                            label="Email"
+                                            value={addUserFormData.email}
+                                            onChange={(e) => setAddUserFormData({ ...addUserFormData, email: e.target.value })}
+                                            required
+                                        />
+                                        <Input
+                                            label="Senha"
+                                            type="password"
+                                            value={addUserFormData.password}
+                                            onChange={(e) => setAddUserFormData({ ...addUserFormData, password: e.target.value })}
+                                            required
+                                        />
+                                        <Button type="submit" className="w-full" disabled={isAddingUser}>
+                                            {isAddingUser ? 'Adicionando...' : 'Adicionar Usuário'}
+                                        </Button>
+                                    </form>
+                                </div>
                             </div>
                         )}
-
-                        <div className="pt-6 border-t mt-6 flex justify-end">
-                            <Button variant="outline" onClick={() => setShowUsersModal(false)} className="w-full md:w-auto">
-                                Fechar
-                            </Button>
+                        <div className="pt-6 mt-6 border-t flex justify-end">
+                            <Button variant="outline" onClick={() => setShowUsersModal(false)}>Fechar</Button>
                         </div>
+                    </Card>
+                </div>
+            )}
+
+            {showPurgeModal && selectedCompany && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                    <Card className="w-full max-w-md p-6 shadow-2xl border-red-100">
+                        <div className="flex items-center space-x-3 text-red-600 mb-6">
+                            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+                                <AlertCircle className="w-6 h-6 text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">Ação Irreversível!</h3>
+                                <p className="text-sm text-red-500 font-bold">Expurgar Dados da Empresa</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 mb-6">
+                            <p className="text-xs text-red-700 leading-relaxed font-medium">
+                                Esta ação excluirá <span className="underline font-bold">permanentemente</span> todos os produtos, vendas, transações financeiras, clientes e agendamentos vinculados a esta empresa.
+                            </p>
+                        </div>
+
+                        <form onSubmit={handlePurgeCompany} className="space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block ml-1">
+                                    Digite <span className="text-red-600 font-extrabold">{selectedCompany.name}</span> para confirmar:
+                                </label>
+                                <Input
+                                    value={purgeConfirmationName}
+                                    onChange={(e) => setPurgeConfirmationName(e.target.value)}
+                                    placeholder="Nome da empresa..."
+                                    required
+                                    className="border-red-200 focus:ring-red-500"
+                                />
+                            </div>
+                            <div className="pt-4 flex flex-col space-y-2">
+                                <Button
+                                    type="submit"
+                                    variant="danger"
+                                    className="w-full h-12"
+                                    disabled={isPurging || purgeConfirmationName !== selectedCompany.name}
+                                >
+                                    {isPurging ? 'Expurgando...' : 'SIM, EXCLUIR TUDO DEFINITIVAMENTE'}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full h-11"
+                                    onClick={() => setShowPurgeModal(false)}
+                                    disabled={isPurging}
+                                >
+                                    Cancelar
+                                </Button>
+                            </div>
+                        </form>
                     </Card>
                 </div>
             )}
