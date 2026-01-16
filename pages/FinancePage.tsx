@@ -116,15 +116,10 @@ const FinancePage: React.FC = () => {
           const income = rawIncome - reversalExpenses;
           const expense = rawExpense - reversalIncomes;
 
-          const rawPending = typedData
+          const pending = typedData
             .filter(t => t.type === 'income' && t.status === 'pending' && t.reference_type !== 'reversal')
+            .filter(t => !typedData.some(rev => rev.reference_id === t.id && rev.reference_type === 'reversal'))
             .reduce((acc, curr) => acc + Number(curr.amount), 0);
-
-          const reversalPending = typedData
-            .filter(t => t.type === 'expense' && t.status === 'pending' && t.reference_type === 'reversal')
-            .reduce((acc, curr) => acc + Number(curr.amount), 0);
-
-          const pending = rawPending - reversalPending;
 
           setTotalIncome(income);
           setTotalExpense(expense);
