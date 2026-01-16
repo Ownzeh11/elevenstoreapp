@@ -11,10 +11,12 @@ import SalesPage from './pages/SalesPage';
 import CustomersPage from './pages/CustomersPage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
-import SuperAdminPage from './pages/SuperAdminPage';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminCompaniesPage from './pages/AdminCompaniesPage';
+import AdminPlaceholder from './pages/AdminPlaceholder';
 import Card from './components/ui/Card';
 import Button from './components/ui/Button';
-import { NAV_ITEMS } from './constants';
+import { USER_NAV_ITEMS, ADMIN_NAV_ITEMS } from './constants';
 import { Shield, AlertCircle } from 'lucide-react';
 import { supabase } from './utils/supabaseClient';
 
@@ -103,7 +105,9 @@ const AppContent: React.FC = () => {
   }, [location.pathname]);
 
   const getPageTitle = (path: string) => {
-    const navItem = NAV_ITEMS.find(item => item.path === path);
+    const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
+    const navItems = isSuperAdmin ? ADMIN_NAV_ITEMS : USER_NAV_ITEMS;
+    const navItem = navItems.find(item => item.path === path);
     return navItem ? navItem.label : 'ElevenStore';
   };
 
@@ -213,14 +217,14 @@ const AppContent: React.FC = () => {
           <Header
             title={getPageTitle(activePath)}
             onServiceClick={
-              (activePath === '/' || activePath === '/finance' || activePath === '/sales') &&
-                (company?.status === 'active' || profile?.role === 'SUPER_ADMIN')
+              !isSuperAdmin && (activePath === '/' || activePath === '/finance' || activePath === '/sales') &&
+                (company?.status === 'active')
                 ? handleLaunchService
                 : undefined
             }
             onSaleClick={
-              (activePath === '/' || activePath === '/finance' || activePath === '/sales') &&
-                (company?.status === 'active' || profile?.role === 'SUPER_ADMIN')
+              !isSuperAdmin && (activePath === '/' || activePath === '/finance' || activePath === '/sales') &&
+                (company?.status === 'active')
                 ? handleLaunchSale
                 : undefined
             }
@@ -228,15 +232,40 @@ const AppContent: React.FC = () => {
           />
           <main className="flex-1 overflow-y-auto relative">
             <Routes>
-              <Route path="/" element={<DashboardPage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/services" element={<ServicesPage onSaleClick={handleLaunchSale} onNewServiceClick={handleNewService} />} />
-              <Route path="/calendar" element={<CalendarPage onNewAppointmentClick={handleNewAppointment} />} />
-              <Route path="/finance" element={<FinancePage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} />} />
-              <Route path="/sales" element={<SalesPage onSaleClick={handleLaunchSale} />} />
-              <Route path="/customers" element={<CustomersPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              {profile?.role === 'SUPER_ADMIN' && <Route path="/admin" element={<SuperAdminPage />} />}
+              {/* Redirect Super Admin from root to admin dashboard */}
+              {isSuperAdmin && location.pathname === '/' && (
+                <Route path="/" element={<div className="p-8"><p className="animate-pulse">Redirecionando para o Console de Administração...</p>{React.useEffect(() => { navigate('/admin'); }, [])}</div>} />
+              )}
+
+              {/* Company Level Routes (Hidden from Super Admin) */}
+              {!isSuperAdmin && (
+                <>
+                  <Route path="/" element={<DashboardPage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} />} />
+                  <Route path="/products" element={<ProductsPage />} />
+                  <Route path="/services" element={<ServicesPage onSaleClick={handleLaunchSale} onNewServiceClick={handleNewService} />} />
+                  <Route path="/calendar" element={<CalendarPage onNewAppointmentClick={handleNewAppointment} />} />
+                  <Route path="/finance" element={<FinancePage onServiceClick={handleLaunchService} onSaleClick={handleLaunchSale} />} />
+                  <Route path="/sales" element={<SalesPage onSaleClick={handleLaunchSale} />} />
+                  <Route path="/customers" element={<CustomersPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </>
+              )}
+
+              {/* Super Admin Routes */}
+              {isSuperAdmin && (
+                <>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/companies" element={<AdminCompaniesPage />} />
+                  <Route path="/admin/plans" element={<AdminPlaceholder title="Planos & Assinaturas" description="Gerencie modelos de preços, limites de recursos e períodos de teste do SaaS." />} />
+                  <Route path="/admin/users" element={<AdminPlaceholder title="Usuários & Acessos" description="Controle global de permissões, papéis administrativos e auditoria de usuários." />} />
+                  <Route path="/admin/billing" element={<AdminPlaceholder title="Financeiro SaaS" description="Visão consolidada de faturas, inadimplência e projeção de receita MRR." />} />
+                  <Route path="/admin/logs" element={<AdminPlaceholder title="Logs de Sistema" description="Rastreamento completo de ações administrativas e auditoria de segurança." />} />
+                  <Route path="/admin/settings" element={<AdminPlaceholder title="Configurações Globais" description="Parâmetros gerais do sistema, chaves de API e variáveis de ambiente SaaS." />} />
+                </>
+              )}
+
+              {/* Fallback for unauthorized access or missing routes */}
+              <Route path="*" element={<div className="p-8 text-center"><p className="text-gray-500">Página não encontrada ou acesso restrito.</p><Button onClick={() => navigate(isSuperAdmin ? '/admin' : '/')} className="mt-4">Voltar ao Início</Button></div>} />
             </Routes>
           </main>
         </div>

@@ -28,7 +28,7 @@ import {
     Key
 } from 'lucide-react';
 
-const SuperAdminPage: React.FC = () => {
+const AdminCompaniesPage: React.FC = () => {
     const [companies, setCompanies] = useState<Company[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -757,4 +757,4 @@ const SuperAdminPage: React.FC = () => {
     );
 };
 
-export default SuperAdminPage;
+export default AdminCompaniesPage;

@@ -1,7 +1,22 @@
 import { NavItem } from './types';
-import { LayoutDashboard, Package, Wrench, CalendarDays, DollarSign, ShoppingCart, Settings, User } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Package,
+  Wrench,
+  CalendarDays,
+  DollarSign,
+  ShoppingCart,
+  Settings,
+  User,
+  Building2,
+  Users,
+  CreditCard,
+  Activity,
+  ShieldCheck,
+  FileSearch
+} from 'lucide-react';
 
-export const NAV_ITEMS: NavItem[] = [
+export const USER_NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/products', label: 'Produtos', icon: Package },
   { path: '/services', label: 'Serviços', icon: Wrench },
@@ -11,6 +26,18 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/customers', label: 'Clientes', icon: User },
   { path: '/settings', label: 'Configurações', icon: Settings },
 ];
+
+export const ADMIN_NAV_ITEMS: NavItem[] = [
+  { path: '/admin', label: 'Dashboard Global', icon: LayoutDashboard },
+  { path: '/admin/companies', label: 'Empresas', icon: Building2 },
+  { path: '/admin/plans', label: 'Planos & Assinaturas', icon: ShieldCheck },
+  { path: '/admin/users', label: 'Usuários & Permissões', icon: Users },
+  { path: '/admin/billing', label: 'Financeiro / SaaS', icon: CreditCard },
+  { path: '/admin/logs', label: 'Logs de Auditoria', icon: FileSearch },
+  { path: '/admin/settings', label: 'Configurações Sistema', icon: Settings },
+];
+
+export const NAV_ITEMS = USER_NAV_ITEMS; // Fallback or default
 
 export const PRODUCT_ICONS: { [key: string]: string } = {
   tshirt: 'https://picsum.photos/32/32?random=1',
