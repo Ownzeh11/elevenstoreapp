@@ -5,9 +5,9 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import { Sale, TableColumn, Product, SaleItem, Service, Transaction } from '../types';
-import { ShoppingCart, Eye, RotateCcw, Filter, Plus, X, Loader2, UserPlus, Trash, Tag, DollarSign, TrendingUp, Calendar } from 'lucide-react';
+import { ShoppingCart, Eye, RotateCcw, Filter, Plus, X, Loader2, UserPlus, Trash2, Tag, DollarSign, TrendingUp, Calendar } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
-import { createTransaction, createReversal } from '../utils/finance';
+import { createTransaction, createReversal, deleteTransaction } from '../utils/finance';
 
 interface SalesPageProps {
   onSaleClick: () => void;
@@ -583,6 +583,45 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
     }
   };
 
+  const handleDeleteSale = async (sale: Sale) => {
+    if (confirm(`ATENÇÃO: Tem certeza que deseja EXCLUIR PERMANENTEMENTE a venda ${formatId(sale.display_id)}? Isso apagará a venda e TODOS os registros financeiros associados. Esta ação não pode ser desfeita.`)) {
+      setLoading(true);
+      try {
+        // 1. Delete associated transactions
+        const { error: txError } = await supabase
+          .from('transactions')
+          .delete()
+          .eq('reference_id', sale.id)
+          .eq('reference_type', 'sale');
+
+        if (txError) throw txError;
+
+        // 2. Delete sale items
+        const { error: itemsError } = await supabase
+          .from('sale_items')
+          .delete()
+          .eq('sale_id', sale.id);
+
+        if (itemsError) throw itemsError;
+
+        // 3. Delete sale itself
+        const { error: saleError } = await supabase
+          .from('sales')
+          .delete()
+          .eq('id', sale.id);
+
+        if (saleError) throw saleError;
+
+        alert(`Venda ${formatId(sale.display_id)} excluída com sucesso!`);
+        fetchData();
+      } catch (error: any) {
+        alert('Erro ao excluir venda: ' + error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const formatId = (id: number) => {
     return `#${String(id).padStart(4, '0')}`;
   };
@@ -621,6 +660,15 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
           >
             Estornar
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={Trash2}
+            aria-label={`Excluir venda ${sale.id}`}
+            onClick={() => handleDeleteSale(sale)}
+            className="text-red-600 hover:text-red-800"
+            title="Excluir Permanentemente"
+          />
         </div>
       ),
     },
@@ -845,7 +893,7 @@ const SalesPage: React.FC<SalesPageProps> = ({ onSaleClick }) => {
                               onClick={() => handleRemoveItem(idx)}
                               className="text-red-400 hover:text-red-600 p-0.5"
                             >
-                              <Trash size={14} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </div>

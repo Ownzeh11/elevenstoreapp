@@ -241,10 +241,13 @@ const FinancePage: React.FC = () => {
   };
 
   const handleDeletePermanently = async (transaction: Transaction) => {
-    // Prevent deletion of sales-linked transactions to maintain data integrity
-    if (transaction.reference_type === 'sale' || transaction.origin === 'product_sale' || transaction.origin === 'service_sale') {
-      alert('Não é possível excluir transações vinculadas a vendas ou serviços diretamente. Cancele a venda/serviço na página de Vendas para remover o registro financeiro.');
-      return;
+    // Check if linked to a sale/service
+    const isLinked = transaction.reference_type === 'sale' || transaction.origin === 'product_sale' || transaction.origin === 'service_sale';
+
+    if (isLinked) {
+      if (!confirm('ATENÇÃO: Esta transação está vinculada a uma VENDA ou SERVIÇO. Excluí-la NÃO cancelará a venda original, o que pode causar inconsistências nos relatórios. Deseja realmente excluir apenas o registro financeiro?')) {
+        return;
+      }
     }
 
     if (confirm('ATENÇÃO: Tem certeza que deseja EXCLUIR PERMANENTEMENTE este registro? Esta ação NÃO pode ser desfeita e removerá o valor dos cálculos.')) {
