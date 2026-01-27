@@ -148,7 +148,7 @@ const AdminCompaniesPage: React.FC = () => {
                     name: editFormData.name,
                     cnpj_cpf: editFormData.cnpj_cpf,
                     billing_email: editFormData.billing_email,
-                    saas_plan_id: editFormData.saas_plan_id,
+                    saas_plan_id: editFormData.saas_plan_id || null, // Fix: Convert empty string to null for UUID
                     status: editFormData.status,
                     renewal_date: editFormData.renewal_date || null,
                     enabled_modules: editFormData.enabled_modules
@@ -160,9 +160,9 @@ const AdminCompaniesPage: React.FC = () => {
             setShowEditModal(false);
             fetchInitialData();
             alert('Dados da empresa atualizados!');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating company:', error);
-            alert('Erro ao atualizar empresa.');
+            alert('Erro ao atualizar empresa: ' + (error.message || 'Erro desconhecido'));
         } finally {
             setIsProcessing(false);
         }
@@ -498,8 +498,8 @@ const AdminCompaniesPage: React.FC = () => {
                                             type="button"
                                             onClick={() => toggleModule(module)}
                                             className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all group ${editFormData.enabled_modules.includes(module)
-                                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                                                    : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                                                ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                                                : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
                                                 }`}
                                         >
                                             <span className="text-[10px] font-black uppercase">{module}</span>
