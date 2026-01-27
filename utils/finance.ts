@@ -69,3 +69,12 @@ export const fetchTotalBalance = async (companyId: string) => {
 
     return income - expense;
 };
+
+export const deleteTransaction = async (id: string) => {
+    const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
+
+    if (error) throw error;
+};

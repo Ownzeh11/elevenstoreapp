@@ -7,10 +7,10 @@ import Input from '../components/ui/Input';
 import Table from '../components/ui/Table';
 import Pill from '../components/ui/Pill';
 import { Transaction, TableColumn } from '../types';
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown, X, Loader2, DollarSign, CheckCircle, Clock, Printer, FileText } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown, X, Loader2, DollarSign, CheckCircle, Clock, Printer, FileText, RotateCcw } from 'lucide-react';
 
 import { supabase } from '../utils/supabaseClient';
-import { createTransaction, createReversal } from '../utils/finance';
+import { createTransaction, createReversal, deleteTransaction } from '../utils/finance';
 
 const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'cashflow' | 'receivables' | 'categories'>('cashflow');
@@ -226,8 +226,8 @@ const FinancePage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja estornar este registro?')) {
+  const handleReversal = async (id: string) => {
+    if (confirm('Tem certeza que deseja estornar este registro? Isso criará uma transação de estorno.')) {
       try {
         const txToDelete = transactions.find(t => t.id === id);
         if (txToDelete) {
@@ -236,6 +236,23 @@ const FinancePage: React.FC = () => {
         }
       } catch (error: any) {
         alert('Erro ao estornar: ' + error.message);
+      }
+    }
+  };
+
+  const handleDeletePermanently = async (transaction: Transaction) => {
+    // Prevent deletion of sales-linked transactions to maintain data integrity
+    if (transaction.reference_type === 'sale' || transaction.origin === 'product_sale' || transaction.origin === 'service_sale') {
+      alert('Não é possível excluir transações vinculadas a vendas ou serviços diretamente. Cancele a venda/serviço na página de Vendas para remover o registro financeiro.');
+      return;
+    }
+
+    if (confirm('ATENÇÃO: Tem certeza que deseja EXCLUIR PERMANENTEMENTE este registro? Esta ação NÃO pode ser desfeita e removerá o valor dos cálculos.')) {
+      try {
+        await deleteTransaction(transaction.id);
+        fetchData();
+      } catch (error: any) {
+        alert('Erro ao excluir: ' + error.message);
       }
     }
   };
@@ -375,9 +392,18 @@ const FinancePage: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
+                icon={RotateCcw}
+                onClick={() => handleReversal(t.id)}
+                className="text-orange-600 hover:text-orange-800"
+                title="Estornar (Criar contra-lançamento)"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
                 icon={Trash2}
-                onClick={() => handleDelete(t.id)}
+                onClick={() => handleDeletePermanently(t)}
                 className="text-red-600 hover:text-red-800"
+                title="Excluir Permanentemente"
               />
             </>
           )}
